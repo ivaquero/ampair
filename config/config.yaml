@@ -11,11 +11,11 @@
 
 # Bacterial genus name, exactly as recognized by NCBI.
 # Examples: Bacillus, Pseudomonas, Listeria, Streptomyces
-genus: Borrelia
+genus: Bacillus
 
 # One or more housekeeping gene names.
 genes:
-  - recG
+  - tuf
 
 # Optional alternative names for each gene, searched in addition to the primary
 # gene name. Useful when annotations vary across genomes.
