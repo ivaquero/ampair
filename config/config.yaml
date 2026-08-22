@@ -1,5 +1,5 @@
 # =============================================================================
-# AmPrime configuration
+# AmPair configuration
 #
 # Edit this file before running the pipeline. Each gene is processed
 # independently and gets its own HTML report.

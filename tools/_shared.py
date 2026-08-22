@@ -19,7 +19,7 @@ if str(ROOT) not in sys.path:
 if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
 
-from amprime.provenance import sha256_file  # noqa: E402  (sys.path set above)
+from ampair.provenance import sha256_file  # noqa: E402  (sys.path set above)
 
 
 def snapshot_metadata_path(archive: Path) -> Path:

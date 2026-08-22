@@ -1,14 +1,14 @@
-"""Small public API for running AmPrime from Python."""
+"""Small public API for running AmPair from Python."""
 
 from .api import (
-    AmPrimeProject,
+    AmPairProject,
     FunctionalTestResult,
     PipelineRun,
     ResultPaths,
 )
 
 __all__ = [
-    "AmPrimeProject",
+    "AmPairProject",
     "FunctionalTestResult",
     "PipelineRun",
     "ResultPaths",

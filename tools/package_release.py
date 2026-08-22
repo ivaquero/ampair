@@ -16,7 +16,7 @@ INCLUDE_PATHS = [
     "pyproject.toml",
     "pixi.toml",
     "pixi.lock",
-    "amprime",
+    "ampair",
     "config",
     "docs",
     "workflow",
@@ -45,7 +45,7 @@ def iter_files():
 
 def main():
     version = project_version()
-    archive_stem = f"amprime-{version}"
+    archive_stem = f"ampair-{version}"
     DIST.mkdir(exist_ok=True)
 
     zip_path = DIST / f"{archive_stem}.zip"

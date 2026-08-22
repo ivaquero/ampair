@@ -1,4 +1,4 @@
-"""Command line wrapper for the public AmPrime API."""
+"""Command line wrapper for the public AmPair API."""
 
 from .cli import main
 

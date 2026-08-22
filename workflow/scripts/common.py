@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Small shared helpers for AmPrime workflow command-line tools."""
+"""Small shared helpers for AmPair workflow command-line tools."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-from amprime.provenance import fasta_directory_summary, sha256_file
+from ampair.provenance import fasta_directory_summary, sha256_file
 
 __all__ = [
     "IUPAC_COMPLEMENT_TABLE",

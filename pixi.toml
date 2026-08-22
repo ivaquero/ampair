@@ -1,15 +1,15 @@
 [workspace]
-name = "amprime"
+name = "ampair"
 version = "0.1.0"
 description = "Amplicon-sequencing primer design workflow for bacterial genera"
-authors = ["AmPrime contributors"]
+authors = ["AmPair contributors"]
 channels = ["conda-forge", "bioconda"]
 platforms = ["linux-64", "osx-arm64", "win-64"]
 preview = ["pixi-build"]
 
 [dependencies]
 # Default dependencies are intentionally cross-platform across Linux,
-# Apple Silicon macOS, and Windows. MUSCLE, VSEARCH, and SeqKit are installed on Unix;
+# macOS, and Windows. MUSCLE, VSEARCH, and SeqKit are installed on Unix;
 # Windows installs them through Scoop when the workflow runs.
 python = "3.12.*"
 snakemake-minimal = ">=8"
@@ -37,37 +37,25 @@ seqkit = "*"
 [tasks]
 compile = "python tools/compile_project.py"
 metadata-check = "python tools/check_metadata.py"
-lint = "ruff check workflow/scripts tools amprime"
-format-check = "ruff format --check workflow/scripts tools amprime"
+lint = "ruff check workflow/scripts tools ampair"
+format-check = "ruff format --check workflow/scripts tools ampair"
 ty-check = "ty check"
 ensure-dependencies = "python workflow/scripts/dependencies.py"
 performance-smoke = "python tools/performance_smoke.py"
 smoke = { cmd = "python tools/smoke_project.py", depends-on = ["ensure-dependencies"] }
 dry-run = "snakemake --snakefile Snakefile -n all --resources mem_mb=8192 --shared-fs-usage input-output persistence software-deployment sources"
 pipeline = { cmd = "snakemake --snakefile Snakefile --cores 4 all --resources mem_mb=8192 --shared-fs-usage input-output persistence software-deployment sources", depends-on = ["ensure-dependencies"] }
-ci = { depends-on = [
-  "compile",
-  "metadata-check",
-  "lint",
-  "format-check",
-  "ty-check",
-  "ensure-dependencies",
-  "performance-smoke",
-  "smoke",
-  "dry-run",
-  "verify-ci-test-data",
-  "functional-test-ci"
-] }
-functional-test = { cmd = "python -m amprime functional-test", depends-on = ["ensure-dependencies"] }
+ci = { depends-on = ["compile", "metadata-check", "lint", "format-check", "ty-check", "ensure-dependencies", "performance-smoke", "smoke", "dry-run", "verify-ci-test-data", "functional-test-ci"] }
+functional-test = { cmd = "python -m ampair functional-test", depends-on = ["ensure-dependencies"] }
 download-ci-test-data = "python tools/download_test_dataset.py --output data/borrelia-genomes.tar.gz"
 verify-ci-test-data = "python tools/verify_test_dataset.py --archive data/borrelia-genomes.tar.gz"
-functional-test-ci = { cmd = "python -m amprime functional-test --archive data/borrelia-genomes.tar.gz", depends-on = ["ensure-dependencies"] }
+functional-test-ci = { cmd = "python -m ampair functional-test --archive data/borrelia-genomes.tar.gz", depends-on = ["ensure-dependencies"] }
 source-archive = "python tools/package_release.py"
 conda-build = "pixi publish --path . --target-dir dist/conda --force"
 conda-install-test = "python tools/test_built_package.py"
 
 [package]
-name = "amprime"
+name = "ampair"
 version = "0.1.0"
 publish = true
 
@@ -76,7 +64,7 @@ backend = { name = "pixi-build-python", version = "0.*" }
 
 [package.build.config]
 extra-input-globs = [
-  "amprime/**/*.py",
+  "ampair/**/*.py",
   "config/**/*",
   "workflow/**/*",
   "Snakefile",

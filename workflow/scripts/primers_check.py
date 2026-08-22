@@ -282,7 +282,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Filter primer pairs by QC metrics.")
     parser.add_argument("--in-tsv", required=True)
     parser.add_argument("--out-tsv", required=True)
-    parser.add_argument("--config", help="Optional AmPrime config.yaml for thresholds")
+    parser.add_argument("--config", help="Optional AmPair config.yaml for thresholds")
     parser.add_argument(
         "--max-hairpin-dg", type=_nullable_float, default=argparse.SUPPRESS
     )

@@ -118,7 +118,7 @@ def parse_args():
         help="Extract every gene in the config with one FASTA scan.",
     )
     parser.add_argument("--out-dir")
-    parser.add_argument("--config", help="Optional AmPrime config.yaml")
+    parser.add_argument("--config", help="Optional AmPair config.yaml")
     parser.add_argument("--alias", action="append", default=[], dest="aliases")
     parser.add_argument("--log", required=True)
     return parser.parse_args()

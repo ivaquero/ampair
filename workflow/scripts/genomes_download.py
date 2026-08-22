@@ -125,7 +125,7 @@ def write_manifest(path, genus, assembly_level, rows, config_sha256=""):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Download genus FASTA files.")
-    parser.add_argument("--config", help="Optional AmPrime config.yaml")
+    parser.add_argument("--config", help="Optional AmPair config.yaml")
     parser.add_argument("--genus")
     parser.add_argument("--assembly-level")
     parser.add_argument("--genomic-dir", required=True)

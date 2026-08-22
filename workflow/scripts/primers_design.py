@@ -345,7 +345,7 @@ def parse_args():
     parser.add_argument("--aln", required=True, help="Input aligned FASTA")
     parser.add_argument("--out-tsv", required=True, help="Output primer TSV")
     parser.add_argument("--out-plot", required=True, help="Output diversity PNG")
-    parser.add_argument("--config", help="Optional AmPrime config.yaml")
+    parser.add_argument("--config", help="Optional AmPair config.yaml")
     parser.add_argument("--gene", help="Gene name, used for per-gene config overrides")
     parser.add_argument("--primer-len", type=int)
     parser.add_argument("--amplicon-min-len", type=int)

@@ -1,4 +1,4 @@
-"""Shared helpers for the AmPrime HTML report builders.
+"""Shared helpers for the AmPair HTML report builders.
 
 The per-gene and cross-gene reports both read tab-separated inputs and render
 an HTML template, so those small utilities live here instead of being copied.

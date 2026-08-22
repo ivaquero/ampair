@@ -1,4 +1,4 @@
-"""Public Python API for AmPrime workflow orchestration and result checks.
+"""Public Python API for AmPair workflow orchestration and result checks.
 
 The API intentionally stays thin: it prepares local input data, calls
 Snakemake as the scheduler, and inspects the files produced by the existing
@@ -94,7 +94,7 @@ def _resource_path(*parts: str) -> Path:
     source_path = _project_root().joinpath(*parts)
     if source_path.exists():
         return source_path
-    return Path(str(resources.files("amprime").joinpath(*parts)))
+    return Path(str(resources.files("ampair").joinpath(*parts)))
 
 
 def _read_tsv(path: Path) -> list[dict[str, str]]:
@@ -178,8 +178,8 @@ def _as_snakemake_target(path: str | Path | None, root: Path) -> str | None:
     return target.as_posix()
 
 
-class AmPrimeProject:
-    """Convenience wrapper around an AmPrime checkout."""
+class AmPairProject:
+    """Convenience wrapper around an AmPair checkout."""
 
     def __init__(self, root: str | Path | None = None):
         self.root = Path(root).resolve() if root else Path.cwd().resolve()
@@ -248,7 +248,7 @@ class AmPrimeProject:
         config["genes"] = [safe_gene]
 
         fd, path = tempfile.mkstemp(
-            prefix=".amprime-functional-", suffix=".yaml", dir=self.root
+            prefix=".ampair-functional-", suffix=".yaml", dir=self.root
         )
         config_path = Path(path)
         try:
@@ -342,7 +342,7 @@ class AmPrimeProject:
             command.append(snakemake_target)
 
         env = os.environ.copy()
-        env["AMPRIME_CONFIG_FILE"] = str(effective_config)
+        env["AMPAIR_CONFIG_FILE"] = str(effective_config)
         scripts_dir = str(self.workflow_scripts_dir())
         pythonpath = env.get("PYTHONPATH")
         env["PYTHONPATH"] = (

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Small FASTA I/O helpers shared by AmPrime command-line tools."""
+"""Small FASTA I/O helpers shared by AmPair command-line tools."""
 
 from functools import lru_cache
 from pathlib import Path

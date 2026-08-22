@@ -157,7 +157,7 @@ def parse_args():
     parser.add_argument("--genome-dir", required=True)
     parser.add_argument("--out-tsv", required=True)
     parser.add_argument("--gene", required=True)
-    parser.add_argument("--config", help="Optional AmPrime config.yaml")
+    parser.add_argument("--config", help="Optional AmPair config.yaml")
     parser.add_argument("--mismatch", type=int)
     parser.add_argument("--amplicon-min-len", type=int)
     parser.add_argument("--amplicon-max-len", type=int)
@@ -237,7 +237,7 @@ def _scan_genome_batch(task):
     executable, genomes, pattern_file, pattern_map, mismatch, valid_lo, valid_hi = task
     record_data = {}
     genome_data = {}
-    with TemporaryDirectory(prefix="amprime-seqkit-batch-") as temp_dir:
+    with TemporaryDirectory(prefix="ampair-seqkit-batch-") as temp_dir:
         merged_fasta = Path(temp_dir) / "genomes.fna"
         with merged_fasta.open("w", encoding="utf-8") as merged:
             for genome_index, genome in enumerate(genomes):
@@ -480,7 +480,7 @@ def main():
         args.workers, (total_genomes + args.batch_size - 1) // args.batch_size
     )
     log.info("Scanning genomes in batches with %d worker process(es)", workers)
-    with TemporaryDirectory(prefix="amprime-seqkit-") as temp_dir:
+    with TemporaryDirectory(prefix="ampair-seqkit-") as temp_dir:
         pattern_file = str(Path(temp_dir) / "patterns.fasta")
         pattern_map = _write_seqkit_pattern_file(pattern_file, candidates)
         genome_batches = [

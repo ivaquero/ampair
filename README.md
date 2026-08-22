@@ -1,13 +1,13 @@
-# AmPrime
+# AmPair
 
-[![CI](https://github.com/Xinming9606/AmPrime/actions/workflows/ci.yml/badge.svg)](https://github.com/Xinming9606/AmPrime/actions/workflows/ci.yml)
-[![Release](https://github.com/Xinming9606/AmPrime/actions/workflows/release.yml/badge.svg)](https://github.com/Xinming9606/AmPrime/actions/workflows/release.yml)
+[![CI](https://github.com/Xinming9606/AmPair/actions/workflows/ci.yml/badge.svg)](https://github.com/Xinming9606/AmPair/actions/workflows/ci.yml)
+[![Release](https://github.com/Xinming9606/AmPair/actions/workflows/release.yml/badge.svg)](https://github.com/Xinming9606/AmPair/actions/workflows/release.yml)
 [![Managed with Pixi](https://img.shields.io/badge/managed%20with-pixi-ffcb47)](https://pixi.sh)
 ![Python](https://img.shields.io/badge/python-3.12-blue)
 ![Platforms](https://img.shields.io/badge/platforms-linux--64%20%7C%20osx--arm64%20%7C%20win--64-2ea44f)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-AmPrime designs and validates amplicon-sequencing primer pairs for bacterial housekeeping genes using public NCBI genomes.
+AmPair designs and validates amplicon-sequencing primer pairs for bacterial housekeeping genes using public NCBI genomes.
 
 You give it:
 
@@ -18,7 +18,7 @@ It returns one self-contained HTML report per gene with the recommended primer p
 
 ## When To Use
 
-Use AmPrime when you want a reproducible first-pass primer design workflow for a bacterial genus, especially when you want primers that should work across many genomes within that genus.
+Use AmPair when you want a reproducible first-pass primer design workflow for a bacterial genus, especially when you want primers that should work across many genomes within that genus.
 
 It is not a full specificity checker yet. The current pipeline checks whether the best QC-passed primer candidates amplify genomes inside the target genus, but it does not test off-target amplification outside the genus.
 
@@ -26,8 +26,8 @@ It is not a full specificity checker yet. The current pipeline checks whether th
 
 ```bash
 # 1. Clone the repository
-git clone git@github.com:Xinming9606/AmPrime.git
-cd AmPrime
+git clone git@github.com:Xinming9606/AmPair.git
+cd AmPair
 
 # 2. Install Pixi if needed: https://pixi.sh
 
@@ -69,13 +69,13 @@ muscle --version
 seqkit version
 ```
 
-Pixi installs VSEARCH, MUSCLE, and SeqKit automatically on Ubuntu and Apple Silicon macOS. On Windows, install them through Scoop (see [Requirements](#requirements)).
+Pixi installs VSEARCH, MUSCLE, and SeqKit automatically on Ubuntu and macOS. On Windows, install them through Scoop (see [Requirements](#requirements)).
 
 If you prefer micromamba/conda, a legacy environment file mirrors the default Pixi dependencies:
 
 ```bash
 micromamba env create -f workflow/envs/environment.yaml
-micromamba activate amprime
+micromamba activate ampair
 snakemake --cores 4
 ```
 
@@ -167,7 +167,7 @@ All output files for a genus live under `results/<genus>/`:
 
 ## How It Works
 
-For each gene independently, AmPrime runs this pipeline:
+For each gene independently, AmPair runs this pipeline:
 
 ```mermaid
 flowchart TD
@@ -209,11 +209,11 @@ Both files include the same default runtime: Snakemake (`snakemake-minimal`), Py
 
 The three command-line tools are installed by platform:
 
-| Tool    | Ubuntu / Apple Silicon macOS | Windows                 |
-| ------- | ---------------------------- | ----------------------- |
-| VSEARCH | Installed by `pixi install`  | Installed through Scoop |
-| MUSCLE  | Installed by `pixi install`  | Installed through Scoop |
-| SeqKit  | Installed by `pixi install`  | Installed through Scoop |
+| Tool    | Ubuntu / macOS              | Windows                 |
+| ------- | --------------------------- | ----------------------- |
+| VSEARCH | Installed by `pixi install` | Installed through Scoop |
+| MUSCLE  | Installed by `pixi install` | Installed through Scoop |
+| SeqKit  | Installed by `pixi install` | Installed through Scoop |
 
 ### Windows command-line tools
 
@@ -290,7 +290,7 @@ pixi run conda-install-test
 
 - `source-archive` writes source `.zip` and `.tar.gz` archives under `dist/`.
 - `conda-build` writes a local conda package under `dist/conda/`.
-- `conda-install-test` builds `amprime`, publishes it to an indexed local conda channel under `dist/conda-channel/`, installs it into a fresh Pixi consumer project, checks the `amprime` command, verifies the bundled config/workflow resources, runs a Snakemake dry run, and executes the functional test against the repository fixture.
+- `conda-install-test` builds `ampair`, publishes it to an indexed local conda channel under `dist/conda-channel/`, installs it into a fresh Pixi consumer project, checks the `ampair` command, verifies the bundled config/workflow resources, runs a Snakemake dry run, and executes the functional test against the repository fixture.
 - `metadata-check` keeps mirrored project metadata honest: package names and versions must match across `pixi.toml` and `pyproject.toml`, conda runtime dependencies must stay in `pixi.toml`, and the legacy `environment.yaml` must mirror the default Pixi environment.
 - `download-ci-test-data` is used by CI to fetch and cache the Borrelia reference dataset; local runs do not access NCBI.
 
@@ -299,24 +299,24 @@ pixi run conda-install-test
 You can also call the workflow through the lightweight Python API:
 
 ```python
-from amprime import AmPrimeProject
+from ampair import AmPairProject
 
-project = AmPrimeProject()
+project = AmPairProject()
 result = project.run_functional_test()
 print(result.report_html)
 ```
 
-After installing the conda package, the same API is exposed as the `amprime` command:
+After installing the conda package, the same API is exposed as the `ampair` command:
 
 ```bash
-amprime functional-test
-amprime verify --genus Borrelia --gene recG
+ampair functional-test
+ampair verify --genus Borrelia --gene recG
 ```
 
 ### Project layout
 
 ```text
-AmPrime/
+AmPair/
 |-- Snakefile
 |-- pixi.toml
 |-- pixi.lock
@@ -324,7 +324,7 @@ AmPrime/
 |-- config/
 |   `-- config.yaml
 |-- tools/            # development and release helper scripts
-|-- amprime/          # the installed Python package
+|-- ampair/           # the installed Python package
 |-- workflow/
 |   |-- Snakefile
 |   |-- rules/        # Snakemake rules
