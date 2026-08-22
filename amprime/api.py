@@ -349,19 +349,10 @@ class AmPrimeProject:
             scripts_dir if not pythonpath else f"{scripts_dir}{os.pathsep}{pythonpath}"
         )
 
+        run_kwargs: dict = {"cwd": self.root, "check": False, "text": True, "env": env}
         if capture_output:
-            completed = subprocess.run(  # noqa: S603 - executable is fixed to Snakemake; shell is disabled.
-                command,
-                cwd=self.root,
-                check=False,
-                text=True,
-                capture_output=True,
-                env=env,
-            )
-        else:
-            completed = subprocess.run(  # noqa: S603 - executable is fixed to Snakemake; shell is disabled.
-                command, cwd=self.root, check=False, text=True, env=env
-            )
+            run_kwargs["capture_output"] = True
+        completed = subprocess.run(command, **run_kwargs)  # noqa: S603 - fixed to Snakemake; shell disabled.
         if completed.returncode != 0:
             raise subprocess.CalledProcessError(
                 completed.returncode,
@@ -481,59 +472,3 @@ class AmPrimeProject:
             return self.verify_result_outputs(
                 genus=genus, gene=gene, expect_no_candidates=expect_no_candidates
             )
-
-
-def prepare_local_dataset(
-    archive: str | Path = DEFAULT_TEST_ARCHIVE,
-    genus: str = DEFAULT_GENUS,
-    root: str | Path | None = None,
-    config_path: str | Path | None = None,
-) -> Path:
-    return AmPrimeProject(root).prepare_local_dataset(
-        archive=archive, genus=genus, config_path=config_path
-    )
-
-
-def run_pipeline(
-    target: str | Path | None = None,
-    cores: int = 4,
-    dry_run: bool = False,
-    root: str | Path | None = None,
-    configfile: str | Path | None = None,
-    capture_output: bool = False,
-) -> PipelineRun:
-    return AmPrimeProject(root).run_pipeline(
-        target=target,
-        cores=cores,
-        dry_run=dry_run,
-        configfile=configfile,
-        capture_output=capture_output,
-    )
-
-
-def verify_result_outputs(
-    genus: str = DEFAULT_GENUS,
-    gene: str = DEFAULT_GENE,
-    root: str | Path | None = None,
-    expect_no_candidates: bool = False,
-) -> FunctionalTestResult:
-    return AmPrimeProject(root).verify_result_outputs(
-        genus=genus, gene=gene, expect_no_candidates=expect_no_candidates
-    )
-
-
-def run_functional_test(
-    archive: str | Path = DEFAULT_TEST_ARCHIVE,
-    genus: str = DEFAULT_GENUS,
-    gene: str = DEFAULT_GENE,
-    cores: int = 4,
-    root: str | Path | None = None,
-    expect_no_candidates: bool = False,
-) -> FunctionalTestResult:
-    return AmPrimeProject(root).run_functional_test(
-        archive=archive,
-        genus=genus,
-        gene=gene,
-        cores=cores,
-        expect_no_candidates=expect_no_candidates,
-    )

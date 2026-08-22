@@ -5,10 +5,6 @@ from .api import (
     FunctionalTestResult,
     PipelineRun,
     ResultPaths,
-    prepare_local_dataset,
-    run_functional_test,
-    run_pipeline,
-    verify_result_outputs,
 )
 
 __all__ = [
@@ -16,8 +12,4 @@ __all__ = [
     "FunctionalTestResult",
     "PipelineRun",
     "ResultPaths",
-    "prepare_local_dataset",
-    "run_functional_test",
-    "run_pipeline",
-    "verify_result_outputs",
 ]

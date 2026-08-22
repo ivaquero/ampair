@@ -3,12 +3,13 @@
 
 import csv
 import importlib.util
-import os
 import subprocess
 import sys
 import tarfile
 import tempfile
 from pathlib import Path
+
+from _shared import extend_pythonpath
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "workflow" / "scripts"
@@ -23,12 +24,7 @@ if SCRIPTS_PATH not in sys.path:
 
 
 def smoke_env():
-    env = os.environ.copy()
-    pythonpath = env.get("PYTHONPATH")
-    env["PYTHONPATH"] = (
-        SCRIPTS_PATH if not pythonpath else os.pathsep.join([SCRIPTS_PATH, pythonpath])
-    )
-    return env
+    return extend_pythonpath(SCRIPTS_PATH)
 
 
 def load_script_module(module_name):
@@ -84,7 +80,7 @@ def check_kmer_boundary():
     )
     assert len(kmers) == 1
     assert kmers[0]["degen"] == "ACGT"
-    entropy = primers_design._shannon(np.array(list("aac-")), 4)
+    entropy = primers_design._shannon(np.array(list("aac-")))
     expected_entropy = -(2 / 3 * np.log(2 / 3) + 1 / 3 * np.log(1 / 3))
     assert np.isclose(entropy, expected_entropy)
     print("kmer boundary ok")

@@ -88,12 +88,11 @@ def _iupac_encode(bases: str) -> str:
     return _IUPAC_MAP.get(key, "N")
 
 
-def _shannon(col, n_seqs: int | None = None) -> float:
+def _shannon(col) -> float:
     """Shannon entropy of the observed A/C/G/T bases in one column.
 
     Gaps and unknown bases are missing observations, not additional bases in
-    the distribution.  The optional ``n_seqs`` argument remains accepted for
-    compatibility with callers of the former implementation.
+    the distribution.
     """
     observed = col[np.isin(col, ["a", "c", "g", "t"])]
     if len(observed) == 0:
@@ -183,12 +182,7 @@ def _build_kmers(consensus, pos_code, pos_fold, divs, primer_len):
 
 
 def _pair_sort_key(row):
-    return (
-        -row["combined_score"],
-        row["total_fold"],
-        row["fwd_pos"],
-        row["rev_pos"],
-    )
+    return (-row["combined_score"], row["total_fold"], row["fwd_pos"], row["rev_pos"])
 
 
 def _evaluate_pairs(
@@ -437,7 +431,7 @@ def main():
     log.info("Loaded %d sequences, alignment length %d bp", n_seqs, aln_len)
     # --- 2. Per-position Shannon entropy ----------------------------------
     consensus = _consensus(dna_matrix)
-    divs = np.array([_shannon(dna_matrix[:, i], n_seqs) for i in range(aln_len)])
+    divs = np.array([_shannon(dna_matrix[:, i]) for i in range(aln_len)])
     log.info("Mean per-position entropy: %.4f", np.mean(divs))
 
     # --- 3. Per-position IUPAC degenerate code + fold ---------------------
@@ -492,11 +486,7 @@ def main():
 
     # --- 7. Evaluate pairs ------------------------------------------------
     results = _evaluate_pairs(
-        candidates,
-        amplicon_min_len,
-        amplicon_max_len,
-        GC_tol,
-        max_primer_pairs,
+        candidates, amplicon_min_len, amplicon_max_len, GC_tol, max_primer_pairs
     )
     if len(results) == max_primer_pairs:
         log.warning(
