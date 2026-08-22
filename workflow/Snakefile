@@ -27,7 +27,6 @@ def _resolve_scripts_dir():
     # resource-based candidates for installed-package consumers.
     candidates = [
         Path.cwd().resolve() / "workflow" / "scripts",
-        Path.cwd().resolve() / "scripts",
     ]
 
     if "__file__" in globals():

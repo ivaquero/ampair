@@ -2,44 +2,17 @@
 """Run fast project smoke checks that do not download data."""
 
 import csv
-import importlib.util
 import subprocess
 import sys
 import tarfile
 import tempfile
 from pathlib import Path
 
-from _shared import extend_pythonpath
-
-ROOT = Path(__file__).resolve().parents[1]
-SCRIPTS = ROOT / "workflow" / "scripts"
-ROOT_PATH = str(ROOT)
-SCRIPTS_PATH = str(SCRIPTS)
-
-if ROOT_PATH not in sys.path:
-    sys.path.insert(0, ROOT_PATH)
-
-if SCRIPTS_PATH not in sys.path:
-    sys.path.insert(0, SCRIPTS_PATH)
-
-
-def smoke_env():
-    return extend_pythonpath(SCRIPTS_PATH)
-
-
-def load_script_module(module_name):
-    module_path = SCRIPTS / f"{module_name}.py"
-    spec = importlib.util.spec_from_file_location(module_name, module_path)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"Cannot load {module_name} from {module_path}")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[module_name] = module
-    spec.loader.exec_module(module)
-    return module
+from _shared import ROOT, SCRIPTS, load_script_module, smoke_env
 
 
 def run_script_help(script_name):
-    subprocess.run(  # noqa: S603 - fixed Python executable and project script.
+    subprocess.run(
         [sys.executable, str(SCRIPTS / script_name), "--help"],
         cwd=ROOT,
         check=True,
@@ -96,7 +69,7 @@ def check_primer_qc_cli():
             "primer_id\tfwd\trev\np1\tAAAAAA\tAAAAAA\np2\tAAAAAA\tTTTTTT\n",
             encoding="utf-8",
         )
-        subprocess.run(  # noqa: S603 - fixed Python executable and project script.
+        subprocess.run(
             [
                 sys.executable,
                 str(SCRIPTS / "primers_check.py"),
@@ -241,7 +214,7 @@ def check_sequence_cli_steps():
         raw_fasta.write_text(
             ">a\nACGTACGTACGT\n>b\nACGTACGTACGT\n>c\nACGTACGTTTGT\n", encoding="utf-8"
         )
-        subprocess.run(  # noqa: S603 - fixed Python executable and project script.
+        subprocess.run(
             [
                 sys.executable,
                 str(SCRIPTS / "fasta_cluster.py"),
@@ -260,7 +233,7 @@ def check_sequence_cli_steps():
         )
         assert fasta_io.count_fasta_records(centroids) == 2
 
-        subprocess.run(  # noqa: S603 - fixed Python executable and project script.
+        subprocess.run(
             [
                 sys.executable,
                 str(SCRIPTS / "fasta_align.py"),
@@ -311,7 +284,7 @@ def check_in_silico_pcr_cli():
         (genome_dir / "genome2.fna").write_text(
             ">contig1 [organism=Test species]\nGCGTGGGGGCAT\n", encoding="utf-8"
         )
-        subprocess.run(  # noqa: S603 - fixed Python executable and project script.
+        subprocess.run(
             [
                 sys.executable,
                 str(SCRIPTS / "in_silico_pcr.py"),
@@ -410,7 +383,7 @@ def check_gene_report_cli():
             encoding="utf-8",
         )
 
-        subprocess.run(  # noqa: S603 - fixed Python executable and project script.
+        subprocess.run(
             [
                 sys.executable,
                 str(SCRIPTS / "gene_report.py"),
@@ -458,7 +431,7 @@ def check_gene_report_cross_cli():
             "unique_amplicon_alleles\t1\n",
             encoding="utf-8",
         )
-        subprocess.run(  # noqa: S603 - fixed Python executable and project script.
+        subprocess.run(
             [
                 sys.executable,
                 str(SCRIPTS / "gene_report_cross.py"),

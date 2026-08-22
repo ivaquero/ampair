@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import csv
-import importlib.util
 import os
 import random
 import subprocess
@@ -13,25 +12,9 @@ import tempfile
 from pathlib import Path
 from time import perf_counter
 
-from _shared import extend_pythonpath
+from _shared import ROOT, SCRIPTS, load_script_module, smoke_env
 
-ROOT = Path(__file__).resolve().parents[1]
-SCRIPTS = ROOT / "workflow" / "scripts"
-
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-if str(SCRIPTS) not in sys.path:
-    sys.path.insert(0, str(SCRIPTS))
-
-# ``common`` lives under workflow/scripts and imports ``amprime.provenance``,
-# so it is loaded explicitly to avoid relying on import-time path state.
-_common_spec = importlib.util.spec_from_file_location("common", SCRIPTS / "common.py")
-if _common_spec is None or _common_spec.loader is None:
-    raise ImportError(f"Cannot load common from {SCRIPTS / 'common.py'}")
-_common = importlib.util.module_from_spec(_common_spec)
-sys.modules["common"] = _common
-_common_spec.loader.exec_module(_common)
-reverse_complement = _common.reverse_complement
+reverse_complement = load_script_module("common").reverse_complement
 
 GENOME_COUNT = 4
 GENOME_LENGTH = 20_000
@@ -126,7 +109,7 @@ def main() -> int:
             "--log",
             str(log_path),
         ]
-        env = extend_pythonpath(SCRIPTS)
+        env = smoke_env()
         started = perf_counter()
         completed = subprocess.run(
             command, cwd=ROOT, env=env, capture_output=True, text=True, check=False
