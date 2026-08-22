@@ -10,7 +10,6 @@ dependencies:
 
   # cross-platform Python workflow implementation
   - python=3.12
-  - biopython
   - numpy
   - matplotlib-base
   - pyyaml

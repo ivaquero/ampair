@@ -205,7 +205,7 @@ Missing genes are handled gracefully. If a gene cannot be found, the pipeline co
 
 The workflow dependencies are declared in [pixi.toml](pixi.toml); the legacy [workflow/envs/environment.yaml](workflow/envs/environment.yaml) mirrors them for micromamba/conda users.
 
-Both files include the same default runtime: Snakemake (`snakemake-minimal`), Python 3.12, Biopython, NumPy, Matplotlib (`matplotlib-base`), `ncbi-genome-download`, PyYAML, Python `markdown`, VSEARCH, MUSCLE, and SeqKit. The development/checking tools Ruff and `ty` are also pinned in both files.
+Both files include the same default runtime: Snakemake (`snakemake-minimal`), Python, NumPy, Matplotlib (`matplotlib-base`), `ncbi-genome-download`, PyYAML, Python `markdown`, VSEARCH, MUSCLE, and SeqKit. The development/checking tools Ruff and `ty` are also pinned in both files.
 
 The three command-line tools are installed by platform:
 

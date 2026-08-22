@@ -6,7 +6,7 @@
 # entropy, builds degenerate (IUPAC) consensus kmer windows, evaluates all
 # valid primer pairs, scores them, and writes a ranked TSV + diversity PNG.
 #
-# Dependencies: numpy, matplotlib, Bio (Biopython).  No R required.
+# Dependencies: numpy, matplotlib.
 #
 # CLI:
 #   python primers_design.py --aln input.aln --out-tsv primers.tsv \

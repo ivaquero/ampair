@@ -13,7 +13,6 @@ preview = ["pixi-build"]
 # Windows installs them through Scoop when the workflow runs.
 python = "3.12.*"
 snakemake-minimal = ">=8"
-biopython = "*"
 numpy = "*"
 matplotlib-base = "*"
 pyyaml = "*"
@@ -80,7 +79,6 @@ python = "3.12.*"
 [package.run-dependencies]
 python = ">=3.12,<3.13"
 snakemake-minimal = ">=8"
-biopython = "*"
 numpy = "*"
 matplotlib-base = "*"
 pyyaml = "*"
