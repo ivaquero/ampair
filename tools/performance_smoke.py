@@ -69,8 +69,8 @@ def write_fixture(genome_dir: Path, primers_path: Path) -> None:
 
 
 def main() -> int:
-    budget = float(os.environ.get("AMPRIME_PERFORMANCE_BUDGET", DEFAULT_BUDGET_SECONDS))
-    with tempfile.TemporaryDirectory(prefix="amprime-performance-") as temp_dir:
+    budget = float(os.environ.get("AMPAIR_PERFORMANCE_BUDGET", DEFAULT_BUDGET_SECONDS))
+    with tempfile.TemporaryDirectory(prefix="ampair-performance-") as temp_dir:
         root = Path(temp_dir)
         genome_dir = root / "genomes"
         genome_dir.mkdir()

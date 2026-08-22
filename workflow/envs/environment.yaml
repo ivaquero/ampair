@@ -1,4 +1,4 @@
-name: amprime
+name: ampair
 # Legacy micromamba/conda fallback. Keep this file in sync with the default
 # Pixi environment; `pixi run metadata-check` enforces the mirrored fields.
 channels:
@@ -10,7 +10,6 @@ dependencies:
 
   # cross-platform Python workflow implementation
   - python=3.12
-  - biopython
   - numpy
   - matplotlib-base
   - pyyaml
@@ -29,4 +28,4 @@ dependencies:
 
   # development checks
   - ruff
-  - pyrefly=1.2
+  - ty

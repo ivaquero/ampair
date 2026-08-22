@@ -1,54 +1,61 @@
 [project]
-name = "amprime"
+name = "ampair"
 version = "0.1.0"
 description = "Amplicon-sequencing primer design workflow for bacterial genera"
 readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
 authors = [
-  { name = "AmPrime contributors" },
+  { name = "AmPair contributors" },
 ]
-# Runtime dependencies are declared in pixi.toml because AmPrime is distributed
+# Runtime dependencies are declared in pixi.toml because AmPair is distributed
 # as a Pixi-built conda package. Keep this wheel metadata minimal to avoid a
 # second dependency source of truth with PyPI-only package names.
 
 [project.urls]
-Homepage = "https://github.com/Xinming9606/AmPrime"
-Issues = "https://github.com/Xinming9606/AmPrime/issues"
-Repository = "https://github.com/Xinming9606/AmPrime"
+Homepage = "https://github.com/Xinming9606/AmPair"
+Issues = "https://github.com/Xinming9606/AmPair/issues"
+Repository = "https://github.com/Xinming9606/AmPair"
 
 [project.scripts]
-amprime = "amprime.cli:main"
+ampair = "ampair.cli:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["amprime"]
+packages = ["ampair"]
 
 [tool.hatch.build.targets.wheel.force-include]
-config = "amprime/config"
-workflow = "amprime/workflow"
-Snakefile = "amprime/Snakefile"
+config = "ampair/config"
+workflow = "ampair/workflow"
+Snakefile = "ampair/Snakefile"
 
-[tool.pyrefly]
-# Workflow scripts are executable modules and import their sibling modules
-# (for example, config_schema.py) as top-level imports.
-project-includes = [
-  "amprime/**/*.py",
-  "tools/**/*.py",
-  "workflow/scripts/**/*.py",
-]
-project-excludes = [
-  ".pixi/**",
-  ".snakemake/**",
-  "dist/**",
-  "results/**",
-]
-search-path = [
-  ".",
+[tool.ty]
+# Workflow scripts and tools import sibling modules (e.g. config_schema.py,
+# _shared.py) as top-level imports, so their directories are extra paths.
+
+[tool.ty.src]
+include = [
+  "ampair",
+  "tools",
   "workflow/scripts",
+]
+exclude = [
+  ".pixi",
+  ".snakemake",
+  "dist",
+  "results",
+]
+
+[tool.ty.environment]
+# Pixi environments are not discovered automatically (they set CONDA_PREFIX,
+# not VIRTUAL_ENV), so point ty at the default environment explicitly.
+python = ".pixi/envs/default"
+extra-paths = [
+  "workflow/scripts",
+  "tools",
 ]
 python-version = "3.12"
 

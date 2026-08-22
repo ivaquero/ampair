@@ -1,4 +1,4 @@
-"""CLI for the lightweight AmPrime Python API."""
+"""CLI for the lightweight AmPair Python API."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from .api import (
     DEFAULT_GENE,
     DEFAULT_GENUS,
     DEFAULT_TEST_ARCHIVE,
-    AmPrimeProject,
+    AmPairProject,
     FunctionalTestResult,
 )
 
@@ -31,7 +31,7 @@ def _print_result(result: FunctionalTestResult) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Run AmPrime through its Python API.")
+    parser = argparse.ArgumentParser(description="Run AmPair through its Python API.")
     parser.add_argument("--root", help="Project root. Defaults to this checkout.")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -69,7 +69,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    project = AmPrimeProject(args.root)
+    project = AmPairProject(args.root)
 
     try:
         if args.command == "prepare-data":
@@ -108,7 +108,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
     except (AssertionError, FileNotFoundError, ValueError) as exc:
-        print(f"amprime: {exc}", file=sys.stderr)
+        print(f"ampair: {exc}", file=sys.stderr)
         return 1
     except subprocess.CalledProcessError as exc:
         if exc.output:

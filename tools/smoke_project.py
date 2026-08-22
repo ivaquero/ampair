@@ -177,7 +177,7 @@ def check_download_manifest():
 
 
 def check_archive_safety():
-    from amprime.api import _safe_extract_tar_gz
+    from ampair.api import _safe_extract_tar_gz
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp = Path(tmp_dir)
@@ -445,16 +445,16 @@ def check_gene_report_cross_cli():
             env=smoke_env(),
         )
         html = report.read_text(encoding="utf-8")
-        assert "AmPrime cross-gene comparison" in html
+        assert "AmPair cross-gene comparison" in html
         assert "recG" in html
         assert "100.0%" in html
     print("cross-gene report cli ok")
 
 
-def check_amprime_api():
-    from amprime import AmPrimeProject
+def check_ampair_api():
+    from ampair import AmPairProject
 
-    project = AmPrimeProject(ROOT)
+    project = AmPairProject(ROOT)
     paths = project.result_paths("Borrelia", "recG")
     assert paths.report_html.as_posix().endswith(
         "results/Borrelia/reports/recG_report.html"
@@ -472,7 +472,7 @@ def check_amprime_api():
             pass
         else:
             raise AssertionError("unsafe API path component was accepted")
-    print("amprime api ok")
+    print("ampair api ok")
 
 
 def main():
@@ -500,7 +500,7 @@ def main():
     check_in_silico_pcr_cli()
     check_gene_report_cli()
     check_gene_report_cross_cli()
-    check_amprime_api()
+    check_ampair_api()
 
 
 if __name__ == "__main__":

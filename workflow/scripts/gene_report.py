@@ -281,7 +281,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Build a per-gene HTML report.")
     parser.add_argument("--gene", required=True)
     parser.add_argument("--genus")
-    parser.add_argument("--config", help="Optional AmPrime config.yaml")
+    parser.add_argument("--config", help="Optional AmPair config.yaml")
     parser.add_argument("--primers-tsv", required=True)
     parser.add_argument("--amplicons-tsv", required=True)
     parser.add_argument("--diversity-png", required=True)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Detect and install external AmPrime command-line dependencies."""
+"""Detect and install external AmPair command-line dependencies."""
 
 from __future__ import annotations
 
@@ -80,7 +80,7 @@ def _validate_tool(tool: str, executable: str, scoop: str | None = None) -> str:
 
 
 def ensure_scoop_bucket(scoop: str) -> None:
-    """Ensure the Scoop bucket containing AmPrime's Windows tools is loaded."""
+    """Ensure the Scoop bucket containing AmPair's Windows tools is loaded."""
     listed = _run_scoop(scoop, ["bucket", "list"])
     log_process_output(listed, log)
     if listed.returncode != 0:

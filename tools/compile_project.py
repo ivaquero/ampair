@@ -9,7 +9,7 @@ PYTHON_FILES = sorted(
     [
         *(ROOT / "workflow" / "scripts").glob("*.py"),
         *(ROOT / "tools").glob("*.py"),
-        *(ROOT / "amprime").glob("*.py"),
+        *(ROOT / "ampair").glob("*.py"),
     ]
 )
 

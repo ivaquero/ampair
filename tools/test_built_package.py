@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build and test the AmPrime conda package in a clean Pixi workspace."""
+"""Build and test the AmPair conda package in a clean Pixi workspace."""
 
 import argparse
 import os
@@ -13,7 +13,7 @@ from pathlib import Path
 from _shared import ROOT
 
 DIST_CHANNEL = ROOT / "dist" / "conda-channel"
-PACKAGE_NAME = "amprime"
+PACKAGE_NAME = "ampair"
 PACKAGE_VERSION = tomllib.loads((ROOT / "pixi.toml").read_text(encoding="utf-8"))[
     "package"
 ]["version"]
@@ -66,7 +66,7 @@ def assert_channel_package_exists() -> Path:
 
 
 def assert_installed_package(channel_url: str, keep_tmp: bool) -> Path:
-    tmp_root = Path(tempfile.mkdtemp(prefix="amprime-package-test-"))
+    tmp_root = Path(tempfile.mkdtemp(prefix="ampair-package-test-"))
     project = tmp_root / "consumer"
     try:
         run(
@@ -87,14 +87,14 @@ def assert_installed_package(channel_url: str, keep_tmp: bool) -> Path:
             stdout=subprocess.DEVNULL,
         )
         run(["pixi", "add", f"{PACKAGE_NAME}=={PACKAGE_VERSION}"], cwd=project)
-        run(["pixi", "run", "amprime", "--help"], cwd=project)
+        run(["pixi", "run", "ampair", "--help"], cwd=project)
         run(["pixi", "run", "python", "-c", install_assertion_code()], cwd=project)
-        run(["pixi", "run", "amprime", "run", "--dry-run"], cwd=project)
+        run(["pixi", "run", "ampair", "run", "--dry-run"], cwd=project)
         test_data = project / "data" / "borrelia-genomes.tar.gz"
         test_data.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(ROOT / "data" / "borrelia-genomes.tar.gz", test_data)
         run(
-            ["pixi", "run", "amprime", "functional-test", "--archive", str(test_data)],
+            ["pixi", "run", "ampair", "functional-test", "--archive", str(test_data)],
             cwd=project,
         )
         print(f"clean install test ok: {PACKAGE_NAME} from {channel_url}")
@@ -120,18 +120,18 @@ def sys_platform() -> str:
 def install_assertion_code() -> str:
     return (
         "from pathlib import Path; "
-        "from amprime import AmPrimeProject; "
-        "p = AmPrimeProject(); "
+        "from ampair import AmPairProject; "
+        "p = AmPairProject(); "
         "cfg = p.ensure_default_config(); "
         "snakefile = p.snakefile(); "
-        "import amprime; "
+        "import ampair; "
         "pixi_env = (Path.cwd() / '.pixi').resolve(); "
-        "amprime_file = Path(amprime.__file__).resolve(); "
+        "ampair_file = Path(ampair.__file__).resolve(); "
         "snakefile = snakefile.resolve(); "
         "assert cfg == Path('config/config.yaml').resolve(); "
         "assert cfg.is_file(); "
         "assert snakefile.is_file(); "
-        "assert pixi_env in amprime_file.parents, amprime_file; "
+        "assert pixi_env in ampair_file.parents, ampair_file; "
         "assert pixi_env in snakefile.parents, snakefile; "
         "print('installed api ok')"
     )
@@ -139,7 +139,7 @@ def install_assertion_code() -> str:
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description=("Build and test the AmPrime conda package from a local channel.")
+        description=("Build and test the AmPair conda package from a local channel.")
     )
     parser.add_argument(
         "--skip-build",

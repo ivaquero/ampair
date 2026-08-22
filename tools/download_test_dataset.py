@@ -80,7 +80,7 @@ def download_archive(output: Path, genus: str, config: Path) -> None:
     # Windows, ncbi-genome-download computes relative paths internally and
     # fails when the system temp directory is on another drive.
     with tempfile.TemporaryDirectory(
-        prefix=".amprime-test-data-", dir=ROOT
+        prefix=".ampair-test-data-", dir=ROOT
     ) as temp_dir:
         root = Path(temp_dir)
         genomes = root / "genomes"

@@ -157,19 +157,28 @@ def parse_args():
     parser.add_argument("--genome-dir", required=True)
     parser.add_argument("--out-tsv", required=True)
     parser.add_argument("--gene", required=True)
-    parser.add_argument("--config", help="Optional AmPrime config.yaml")
+    parser.add_argument("--config", help="Optional AmPair config.yaml")
     parser.add_argument("--mismatch", type=int)
     parser.add_argument("--amplicon-min-len", type=int)
     parser.add_argument("--amplicon-max-len", type=int)
     parser.add_argument("--top-n", type=int)
     parser.add_argument(
-        "--workers", type=int, default=1, help="Genome-scanning worker processes."
+        "--workers",
+        type=int,
+        default=os.cpu_count() or 1,
+        help="Genome-scanning worker processes (default: CPU count).",
     )
     parser.add_argument(
         "--batch-size",
         type=int,
         default=DEFAULT_BATCH_SIZE,
         help="Number of genomes handled by one SeqKit invocation.",
+    )
+    parser.add_argument(
+        "--seqkit-threads",
+        type=int,
+        default=0,
+        help="Threads per SeqKit invocation (0 = auto: CPU count / workers).",
     )
     parser.add_argument("--species-summary")
     parser.add_argument("--species-tsv")
@@ -234,10 +243,19 @@ def _summarize_candidates(candidates, total_genomes):
 
 def _scan_genome_batch(task):
     """Locate all primer sites in a temporary, uniquely keyed FASTA batch."""
-    executable, genomes, pattern_file, pattern_map, mismatch, valid_lo, valid_hi = task
+    (
+        executable,
+        genomes,
+        pattern_file,
+        pattern_map,
+        mismatch,
+        valid_lo,
+        valid_hi,
+        seqkit_threads,
+    ) = task
     record_data = {}
     genome_data = {}
-    with TemporaryDirectory(prefix="amprime-seqkit-batch-") as temp_dir:
+    with TemporaryDirectory(prefix="ampair-seqkit-batch-") as temp_dir:
         merged_fasta = Path(temp_dir) / "genomes.fna"
         with merged_fasta.open("w", encoding="utf-8") as merged:
             for genome_index, genome in enumerate(genomes):
@@ -266,7 +284,7 @@ def _scan_genome_batch(task):
             "--degenerate",
             "--bed",
             "--threads",
-            "1",
+            str(seqkit_threads),
             "--quiet",
             str(merged_fasta),
         ]
@@ -479,8 +497,12 @@ def main():
     workers = min(
         args.workers, (total_genomes + args.batch_size - 1) // args.batch_size
     )
+    if args.seqkit_threads and args.seqkit_threads < 1:
+        raise SystemExit("seqkit-threads must be a positive integer or 0 (auto)")
+    seqkit_threads = args.seqkit_threads or max(1, (os.cpu_count() or 1) // workers)
     log.info("Scanning genomes in batches with %d worker process(es)", workers)
-    with TemporaryDirectory(prefix="amprime-seqkit-") as temp_dir:
+    log.info("SeqKit threads per batch: %d", seqkit_threads)
+    with TemporaryDirectory(prefix="ampair-seqkit-") as temp_dir:
         pattern_file = str(Path(temp_dir) / "patterns.fasta")
         pattern_map = _write_seqkit_pattern_file(pattern_file, candidates)
         genome_batches = [
@@ -488,7 +510,16 @@ def main():
             for start in range(0, total_genomes, args.batch_size)
         ]
         tasks = [
-            (executable, batch, pattern_file, pattern_map, mismatch, valid_lo, valid_hi)
+            (
+                executable,
+                batch,
+                pattern_file,
+                pattern_map,
+                mismatch,
+                valid_lo,
+                valid_hi,
+                seqkit_threads,
+            )
             for batch in genome_batches
         ]
         if workers > 1:
