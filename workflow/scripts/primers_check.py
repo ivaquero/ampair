@@ -19,6 +19,7 @@ import csv
 import logging
 import os
 
+from common import IUPAC_COMPLEMENT_TABLE, reverse_complement
 from config_schema import load_config_file
 
 # ---------------------------------------------------------------------------
@@ -41,10 +42,6 @@ IUPAC_BASES = {
     "V": frozenset("ACG"),
     "N": frozenset("ACGT"),
 }
-
-IUPAC_COMPLEMENT = str.maketrans(
-    "ACGTRYMKSWHBVDNacgtrymkswhbvdn", "TGCAYRKMSWDVBHNtgcayrkmswdvbhn"
-)
 
 # ---------------------------------------------------------------------------
 # SantaLucia 1998 unified nearest-neighbour dG (kcal/mol, 37 C, 1 M NaCl)
@@ -79,11 +76,7 @@ MIN_LOOP = 3  # minimum loop size for hairpin
 # Building blocks
 # ---------------------------------------------------------------------------
 def _complement(base: str) -> str:
-    return base.translate(IUPAC_COMPLEMENT)
-
-
-def _reverse_complement(seq: str) -> str:
-    return seq.translate(IUPAC_COMPLEMENT)[::-1]
+    return base.translate(IUPAC_COMPLEMENT_TABLE)
 
 
 def _base_set(base: str):
@@ -129,7 +122,7 @@ def _duplex_dg(seq_5p: str) -> float:
     dg = _terminal_init_dg(seq_5p[0])
     for i in range(n - 1):
         dg += _nearest_neighbor_dg(seq_5p[i : i + 2])
-    if seq_5p == _reverse_complement(seq_5p):
+    if seq_5p == reverse_complement(seq_5p):
         dg += SYMMETRY_DG
     return dg
 
@@ -178,12 +171,12 @@ def _align_dg(seq_a: str, seq_b_rc: str) -> float:
 
 def calc_homodimer_dg(seq: str) -> float:
     """Minimum homodimer dG (self-dimer)."""
-    return _align_dg(seq, _reverse_complement(seq))
+    return _align_dg(seq, reverse_complement(seq))
 
 
 def calc_heterodimer_dg(seq_a: str, seq_b: str) -> float:
     """Minimum heterodimer dG (cross-dimer)."""
-    return _align_dg(seq_a, _reverse_complement(seq_b))
+    return _align_dg(seq_a, reverse_complement(seq_b))
 
 
 # ---------------------------------------------------------------------------
@@ -206,7 +199,7 @@ def calc_hairpin_dg(seq: str) -> float:
             j_min = i + stem_len + MIN_LOOP
             for j in range(j_min, n - stem_len + 1):
                 stem5 = seq[i : i + stem_len]
-                stem3_rc = _reverse_complement(seq[j : j + stem_len])
+                stem3_rc = reverse_complement(seq[j : j + stem_len])
                 if all(
                     _compatible_after_reverse_complement(a, b)
                     for a, b in zip(stem5, stem3_rc, strict=True)

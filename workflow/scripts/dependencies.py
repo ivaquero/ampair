@@ -12,35 +12,22 @@ import subprocess
 import tarfile
 from pathlib import Path
 
+from common import log_process_output
+
 log = logging.getLogger(__name__)
 REQUIRED_TOOLS = ("vsearch", "muscle", "seqkit")
 SCOOP_BUCKET_NAME = "main-plus"
 SCOOP_BUCKET_URL = "https://github.com/Scoopforge/Main-Plus"
 
 
-def _log_process_output(completed: subprocess.CompletedProcess[str]) -> None:
-    if completed.stdout:
-        log.info(completed.stdout.rstrip())
-    if completed.stderr:
-        log.info(completed.stderr.rstrip())
-
-
 def _run_scoop(scoop: str, arguments: list[str]) -> subprocess.CompletedProcess[str]:
     command = [scoop, *arguments]
-    return subprocess.run(  # noqa: S603 - executable came from PATH lookup.
-        command,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    return subprocess.run(command, capture_output=True, text=True, check=False)
 
 
 def _seqkit_runs(executable: str) -> bool:
-    completed = subprocess.run(  # noqa: S603 - executable came from PATH lookup.
-        [executable, "version"],
-        capture_output=True,
-        text=True,
-        check=False,
+    completed = subprocess.run(
+        [executable, "version"], capture_output=True, text=True, check=False
     )
     return completed.returncode == 0
 
@@ -95,7 +82,7 @@ def _validate_tool(tool: str, executable: str, scoop: str | None = None) -> str:
 def ensure_scoop_bucket(scoop: str) -> None:
     """Ensure the Scoop bucket containing AmPrime's Windows tools is loaded."""
     listed = _run_scoop(scoop, ["bucket", "list"])
-    _log_process_output(listed)
+    log_process_output(listed, log)
     if listed.returncode != 0:
         raise RuntimeError(
             f"Scoop bucket listing failed with exit code {listed.returncode}."
@@ -115,7 +102,7 @@ def ensure_scoop_bucket(scoop: str) -> None:
 
     log.info("Loading Scoop bucket: %s", SCOOP_BUCKET_NAME)
     added = _run_scoop(scoop, ["bucket", "add", SCOOP_BUCKET_NAME, SCOOP_BUCKET_URL])
-    _log_process_output(added)
+    log_process_output(added, log)
     if added.returncode != 0:
         raise RuntimeError(
             f"Scoop failed to add bucket {SCOOP_BUCKET_NAME} with exit code "
@@ -136,7 +123,7 @@ def _ensure_windows_tool(tool: str) -> str:
     log.info("%s not found; installing it with Scoop", tool)
     ensure_scoop_bucket(scoop)
     completed = _run_scoop(scoop, ["install", tool])
-    _log_process_output(completed)
+    log_process_output(completed, log)
     if completed.returncode != 0:
         raise RuntimeError(
             f"Scoop failed to install {tool} with exit code "

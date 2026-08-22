@@ -19,7 +19,7 @@ import yaml
 from _shared import extend_pythonpath, sha256_file, snapshot_metadata_path
 
 ROOT = Path(__file__).resolve().parents[1]
-DOWNLOAD_SCRIPT = ROOT / "workflow" / "scsripts" / "genomes_download.py"
+DOWNLOAD_SCRIPT = ROOT / "workflow" / "scripts" / "genomes_download.py"
 DEFAULT_CONFIG = ROOT / "config" / "config.yaml"
 DEFAULT_OUTPUT = ROOT / "data" / "borrelia-genomes.tar.gz"
 SNAPSHOT_SCHEMA_VERSION = 1

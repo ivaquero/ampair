@@ -14,7 +14,7 @@ import subprocess
 import sys
 from time import perf_counter
 
-from common import configure_logging
+from common import configure_logging, log_process_output
 from dependencies import ensure_tool
 from fasta_io import count_fasta_records, parse_fasta
 
@@ -45,10 +45,7 @@ def cluster_with_vsearch(executable, input_path, output_path, identity, threads)
         text=True,
         check=False,
     )
-    if completed.stdout:
-        log.info(completed.stdout.rstrip())
-    if completed.stderr:
-        log.info(completed.stderr.rstrip())
+    log_process_output(completed, log)
     if completed.returncode != 0:
         raise RuntimeError(
             f"VSEARCH clustering failed with exit code {completed.returncode}"

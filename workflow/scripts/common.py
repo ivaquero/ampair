@@ -43,3 +43,11 @@ def required_param(name: str, value):
 
 def reverse_complement(seq: str) -> str:
     return seq.translate(IUPAC_COMPLEMENT_TABLE)[::-1]
+
+
+def log_process_output(completed, logger) -> None:
+    """Log a completed subprocess's stdout and stderr at INFO level."""
+    if completed.stdout:
+        logger.info(completed.stdout.rstrip())
+    if completed.stderr:
+        logger.info(completed.stderr.rstrip())
