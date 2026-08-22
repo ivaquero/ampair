@@ -22,53 +22,6 @@ Use AmPrime when you want a reproducible first-pass primer design workflow for a
 
 It is not a full specificity checker yet. The current pipeline checks whether the best QC-passed primer candidates amplify genomes inside the target genus, but it does not test off-target amplification outside the genus.
 
-## How It Works
-
-For each gene independently, AmPrime runs this pipeline:
-
-```mermaid
-flowchart TD
-    CFG[config.yaml<br/>genus + genes]
-
-    subgraph S1[Genome Inputs]
-        direction LR
-        A[Download<br/>NCBI genomes] --> B[Extract gene<br/>CDS + rRNA]
-    end
-
-    subgraph S2[Representative Sequences]
-        direction LR
-        C[Dereplicate] --> D[Align]
-    end
-
-    subgraph S3[Primer Selection]
-        direction LR
-        E[Design<br/>entropy scan] --> F[QC<br/>hairpin + dimer]
-    end
-
-    subgraph S4[Validation And Output]
-        direction LR
-        G[In silico<br/>PCR] --> H[HTML<br/>report]
-    end
-
-    CFG --> A
-    B --> C
-    D --> E
-    F --> G
-```
-
-The main idea is simple:
-
-1. Download genomic, CDS, and RNA FASTA files for the target genus.
-2. Extract the target gene from CDS/RNA annotations.
-3. Dereplicate near-identical sequences so redundant strains do not dominate.
-4. Align representative sequences with MUSCLE.
-5. Find conserved primer windows that flank a variable amplicon region.
-6. Filter primer pairs for simple secondary-structure risks.
-7. Validate the best QC-passed candidates against full genomes with SeqKit.
-8. Write a browsable HTML report.
-
-Missing genes are handled gracefully. If a gene cannot be found, the pipeline continues and writes a report showing that no candidates were available.
-
 ## Quick Start
 
 ```bash
@@ -95,6 +48,36 @@ results/<genus>/reports/<gene>_report.html
 ```
 
 Open the HTML file in a browser to inspect the recommended primer pair and validation summary.
+
+## Setup
+
+Pixi is the recommended setup. It creates the conda/bioconda environment from [pixi.toml](pixi.toml) and keeps runs reproducible with `pixi.lock`. The locked platforms are Linux, macOS, and Windows.
+
+```bash
+pixi install
+```
+
+Verify that the workflow and its command-line tools are available:
+
+```bash
+# Snakemake resolves the workflow
+pixi run dry-run
+
+# External tools used by the pipeline (see Requirements)
+vsearch --version
+muscle --version
+seqkit version
+```
+
+Pixi installs VSEARCH, MUSCLE, and SeqKit automatically on Ubuntu and Apple Silicon macOS. On Windows, install them through Scoop (see [Requirements](#requirements)).
+
+If you prefer micromamba/conda, a legacy environment file mirrors the default Pixi dependencies:
+
+```bash
+micromamba env create -f workflow/envs/environment.yaml
+micromamba activate amprime
+snakemake --cores 4
+```
 
 ## Configuration
 
@@ -135,7 +118,7 @@ Useful options:
 | `GC_tol`                               | Maximum GC fraction difference between forward and reverse primers.                             |
 | `pcr_mismatch`                         | Mismatches allowed per primer during in silico PCR.                                             |
 | `pcr_top_n`                            | Number of QC-passed primer pairs to validate before choosing the report recommendation.         |
-| `max_primer_pairs`                     | Maximum number of scored primer pairs retained by primer design.                               |
+| `max_primer_pairs`                     | Maximum number of scored primer pairs retained by primer design.                                |
 
 If a gene is annotated under different names across genomes, add aliases:
 
@@ -155,9 +138,18 @@ div_cut_per_gene:
   rpoB: 1.5
 ```
 
-## Output Files
+## Reading the Report
 
-For each gene, outputs are written under `results/<genus>/`.
+The main deliverable is `results/<genus>/reports/<gene>_report.html`. It shows, for one gene:
+
+- the recommended primer pair, with forward and reverse sequences
+- in silico PCR and species-level validation of the recommended pair
+- a per-position Shannon entropy plot with the top primer sites marked
+- all scored candidate primer pairs
+
+When multiple genes are configured, `results/<genus>/reports/gene_report_cross.html` compares amplification and species-level metrics across genes.
+
+All output files for a genus live under `results/<genus>/`:
 
 | File                                 | Contents                                                                             |
 | ------------------------------------ | ------------------------------------------------------------------------------------ |
@@ -173,132 +165,64 @@ For each gene, outputs are written under `results/<genus>/`.
 | `logs/...`                           | Per-step logs for debugging.                                                         |
 | `benchmarks/...`                     | Snakemake benchmark files.                                                           |
 
-## Project Layout
+## How It Works
 
-```text
-AmPrime/
-|-- Snakefile
-|-- pixi.toml
-|-- pixi.lock
-|-- pyproject.toml
-|-- .github/
-|   `-- workflows/
-|-- config/
-|   `-- config.yaml
-|-- tools/
-|   |-- compile_project.py
-|   |-- check_metadata.py
-|   |-- download_test_dataset.py
-|   |-- verify_test_dataset.py
-|   |-- smoke_project.py
-|   |-- test_built_package.py
-|   `-- package_release.py
-|-- amprime/
-|   |-- api.py
-|   |-- cli.py
-|   `-- __main__.py
-|-- docs/
-|   |-- paper.md
-|   `-- test-functional.md
-|-- workflow/
-|   |-- Snakefile
-|   |-- rules/
-|   |   |-- genomes_download.smk
-|   |   |-- gene_extract.smk
-|   |   |-- cluster.smk
-|   |   |-- align.smk
-|   |   |-- primers_design.smk
-|   |   |-- primers_check.smk
-|   |   |-- in_silico_pcr.smk
-|   |   `-- reports.smk
-|   |-- scripts/
-|   |   |-- genomes_download.py
-|   |   |-- gene_extract.py
-|   |   |-- fasta_cluster.py
-|   |   |-- fasta_align.py
-|   |   |-- primers_design.py
-|   |   |-- primers_check.py
-|   |   |-- in_silico_pcr.py
-|   |   |-- gene_report.py
-|   |   |-- gene_report_cross.py
-|   |   |-- gene_report_cross.html
-|   |   |-- report.css
-|   |   |-- dependencies.py
-|   |   |-- common.py
-|   |   |-- fasta_io.py
-|   |   `-- gene_report.html
-|   `-- envs/
-|       `-- environment.yaml
-`-- results/
+For each gene independently, AmPrime runs this pipeline:
+
+```mermaid
+flowchart TD
+    CFG[config.yaml<br/>genus + genes]
+
+    subgraph S1[Genome Inputs]
+        direction LR
+        A[Download<br/>NCBI genomes] --> B[Extract gene<br/>CDS + rRNA]
+    end
+
+    subgraph S2[Representative Sequences]
+        direction LR
+        C[Dereplicate] --> D[Align]
+    end
+
+    subgraph S3[Primer Selection]
+        direction LR
+        E[Design<br/>entropy scan] --> F[QC<br/>hairpin + dimer]
+    end
+
+    subgraph S4[Validation And Output]
+        direction LR
+        G[In silico<br/>PCR] --> H[HTML<br/>report]
+    end
+
+    CFG --> A
+    B --> C
+    D --> E
+    F --> G
 ```
 
-## Design Notes
+Missing genes are handled gracefully. If a gene cannot be found, the pipeline continues and writes a report showing that no candidates were available.
 
-Snakemake is intentionally kept as a thin scheduler. It manages dependencies, parallel execution, logs, benchmarks, and resumability. The actual work is done by standalone Python command-line tools in `workflow/scripts/`. The shared `dependencies.py` module detects VSEARCH, MUSCLE, and SeqKit and installs missing Windows tools through Scoop.
+## Requirements
 
-Download outputs are refreshed as a unit when the download rule runs, so stale FASTA files from a previous genus or assembly level do not mix into a new run. Clustering always uses VSEARCH at 97% identity, and representative sequences are aligned with MUSCLE. Alignment runs write a small metadata TSV next to the alignment, recording the MUSCLE executable and version. The same alignment summary is included in each HTML report so runs remain easy to audit.
+The workflow dependencies are declared in [pixi.toml](pixi.toml); the legacy [workflow/envs/environment.yaml](workflow/envs/environment.yaml) mirrors them for micromamba/conda users.
 
-Gene extraction is a single batch scan for all configured genes, avoiding a full CDS/RNA directory rescan per gene. In-silico PCR batches genomes into SeqKit `locate` invocations, searches both strands for every candidate site, reconstructs every valid primer-site pairing, and aggregates deterministic report metrics in Python. Workflow rules declare thread and memory requirements; the Pixi convenience tasks cap scheduled memory at 8 GB. The `performance-smoke` task guards against large regressions before very large genera are processed.
+Both files include the same default runtime: Snakemake (`snakemake-minimal`), Python 3.12, Biopython, NumPy, Matplotlib (`matplotlib-base`), `ncbi-genome-download`, PyYAML, Python `markdown`, VSEARCH, MUSCLE, and SeqKit. The development/checking tools Ruff and `ty` are also pinned in both files.
 
-This keeps each step easy to test and debug. For example:
+The three command-line tools are installed by platform:
 
-```bash
-python workflow/scripts/gene_extract.py --help
-python workflow/scripts/primers_design.py --help
-python workflow/scripts/gene_report.py --help
+| Tool    | Ubuntu / Apple Silicon macOS | Windows                 |
+| ------- | ---------------------------- | ----------------------- |
+| VSEARCH | Installed by `pixi install`  | Installed through Scoop |
+| MUSCLE  | Installed by `pixi install`  | Installed through Scoop |
+| SeqKit  | Installed by `pixi install`  | Installed through Scoop |
+
+### Windows command-line tools
+
+On Windows, install Scoop first, then run:
+
+```powershell
+scoop bucket add main-plus https://github.com/Scoopforge/Main-Plus
+scoop install vsearch muscle seqkit
 ```
-
-## Development
-
-Pixi is the primary project manager. It creates the conda/bioconda environment from [pixi.toml](pixi.toml) and keeps runs reproducible with `pixi.lock`. The locked Pixi platforms are Linux, Apple Silicon macOS, and Windows. Intel macOS is not supported. Pixi installs VSEARCH, MUSCLE, and SeqKit automatically on Ubuntu and Apple Silicon macOS. On Windows, the workflow checks for all three executables and installs missing tools with Scoop when Scoop is available.
-
-Useful commands:
-
-```bash
-pixi run compile
-pixi run metadata-check
-pixi run lint
-pixi run format-check
-pixi run ty-check
-pixi run ensure-dependencies
-pixi run performance-smoke
-pixi run smoke
-pixi run dry-run
-pixi run pipeline
-pixi run ci
-pixi run functional-test
-pixi run functional-test-ci
-pixi run source-archive
-pixi run conda-build
-pixi run conda-install-test
-```
-
-- `source-archive` writes source `.zip` and `.tar.gz` archives under `dist/`.
-- `conda-build` writes a local conda package under `dist/conda/`.
-- `conda-install-test` builds `amprime`, publishes it to an indexed local conda channel under `dist/conda-channel/`, installs it into a fresh Pixi consumer project, checks the `amprime` command, verifies the bundled config/workflow resources, runs a Snakemake dry run, and executes the functional test against the repository fixture.
-- `metadata-check` keeps mirrored project metadata honest: package names and versions must match across `pixi.toml` and `pyproject.toml`, conda runtime dependencies must stay in `pixi.toml`, and the legacy `environment.yaml` must mirror the default Pixi environment.
-
-For the end-to-end Borrelia functional test, including CI dataset download, see
-[docs/test-functional.md](docs/test-functional.md).
-
-You can also call the workflow through the lightweight Python API:
-
-```python
-from amprime import AmPrimeProject
-
-project = AmPrimeProject()
-result = project.run_functional_test()
-print(result.report_html)
-```
-
-After installing the conda package, the same API is exposed as the `amprime` command:
-
-```bash
-amprime functional-test
-amprime verify --genus Borrelia --gene recG
-```
-
-The GitHub Actions workflow downloads and caches the Borrelia test archive before running `pixi run ci`; the archive is paired with a SHA-256 sidecar and an explicit cache snapshot version. Bump that version in the workflow when refreshing the reference dataset. Local `pixi run ci` does not access NCBI. Pushing a tag like `v0.1.0` runs the release workflow, verifies a clean conda-package install, builds source archives plus a conda package under `dist/`, uploads them as workflow artifacts, and attaches them to the GitHub Release.
 
 ## Troubleshooting
 
@@ -318,61 +242,98 @@ If no primers are found, try one or more of the following:
 
 If genome download fails, confirm that the genus name is recognized by NCBI and that your internet connection is available.
 
-On Ubuntu and Apple Silicon macOS, `pixi install` supplies VSEARCH and MUSCLE.
-Check them with:
-
-```bash
-vsearch --version
-muscle --version
-seqkit version
-```
-
-On Windows, VSEARCH, MUSCLE, and SeqKit are required. Dependency setup first checks for each executable, then checks Scoop, loads the `main-plus` bucket with `scoop bucket add main-plus https://github.com/Scoopforge/Main-Plus` when needed, and installs the missing tool with Scoop. The Windows CI and Release workflows perform the same bucket setup explicitly before running the dependency check. If Scoop is not installed, install it first using the instructions below.
-
 If the test dataset check reports a checksum mismatch, remove the archive and its `.json` sidecar, then regenerate them together with `pixi run download-ci-test-data`.
 
 If a batch run is slow, inspect the per-step logs and benchmarks under `results/<genus>/logs/` and `results/<genus>/benchmarks/`. The Python sequence steps log input sequence counts, centroid counts, scanned genome bases, and elapsed time. Start with a stricter assembly level such as `complete`, a smaller gene set, or a lower `pcr_top_n` when first testing a large genus.
 
 Check the report or `results/<genus>/aligned/<gene>.alignment.tsv` to see the MUSCLE executable and version used for alignment.
 
-## Requirements
+## Development
 
-Use Pixi for the simplest setup:
+### Design notes
+
+Snakemake is intentionally kept as a thin scheduler. It manages dependencies, parallel execution, logs, benchmarks, and resumability. The actual work is done by standalone Python command-line tools in `workflow/scripts/`. The shared `dependencies.py` module detects VSEARCH, MUSCLE, and SeqKit and installs missing Windows tools through Scoop.
+
+Download outputs are refreshed as a unit when the download rule runs, so stale FASTA files from a previous genus or assembly level do not mix into a new run. Clustering always uses VSEARCH at 97% identity, and representative sequences are aligned with MUSCLE. Alignment runs write a small metadata TSV next to the alignment, recording the MUSCLE executable and version. The same alignment summary is included in each HTML report so runs remain easy to audit.
+
+Gene extraction is a single batch scan for all configured genes, avoiding a full CDS/RNA directory rescan per gene. In-silico PCR batches genomes into SeqKit `locate` invocations, searches both strands for every candidate site, reconstructs every valid primer-site pairing, and aggregates deterministic report metrics in Python. Workflow rules declare thread and memory requirements; the Pixi convenience tasks cap scheduled memory at 8 GB. The `performance-smoke` task guards against large regressions before very large genera are processed.
+
+Each step is easy to test and debug in isolation:
 
 ```bash
+python workflow/scripts/gene_extract.py --help
+python workflow/scripts/primers_design.py --help
+python workflow/scripts/gene_report.py --help
+```
+
+### Useful commands
+
+```bash
+pixi run compile
+pixi run metadata-check
+pixi run lint
+pixi run format-check
+pixi run ty-check
+pixi run ensure-dependencies
+pixi run performance-smoke
+pixi run smoke
+pixi run dry-run
+pixi run pipeline
 pixi run ci
+pixi run functional-test
+pixi run functional-test-ci
+pixi run download-ci-test-data   # CI only: fetch and cache the reference test dataset
+pixi run source-archive
+pixi run conda-build
+pixi run conda-install-test
 ```
 
-The workflow dependencies are declared in:
+- `source-archive` writes source `.zip` and `.tar.gz` archives under `dist/`.
+- `conda-build` writes a local conda package under `dist/conda/`.
+- `conda-install-test` builds `amprime`, publishes it to an indexed local conda channel under `dist/conda-channel/`, installs it into a fresh Pixi consumer project, checks the `amprime` command, verifies the bundled config/workflow resources, runs a Snakemake dry run, and executes the functional test against the repository fixture.
+- `metadata-check` keeps mirrored project metadata honest: package names and versions must match across `pixi.toml` and `pyproject.toml`, conda runtime dependencies must stay in `pixi.toml`, and the legacy `environment.yaml` must mirror the default Pixi environment.
+- `download-ci-test-data` is used by CI to fetch and cache the Borrelia reference dataset; local runs do not access NCBI.
 
-```text
-pixi.toml
+### Python API
+
+You can also call the workflow through the lightweight Python API:
+
+```python
+from amprime import AmPrimeProject
+
+project = AmPrimeProject()
+result = project.run_functional_test()
+print(result.report_html)
 ```
 
-The legacy micromamba/conda environment file mirrors the default Pixi dependencies for users who prefer that tooling:
+After installing the conda package, the same API is exposed as the `amprime` command:
 
 ```bash
-micromamba env create -f workflow/envs/environment.yaml
-micromamba activate amprime
-snakemake --cores 4
+amprime functional-test
+amprime verify --genus Borrelia --gene recG
 ```
 
-That environment file lives at:
+### Project layout
 
 ```text
-workflow/envs/environment.yaml
+AmPrime/
+|-- Snakefile
+|-- pixi.toml
+|-- pixi.lock
+|-- pyproject.toml
+|-- config/
+|   `-- config.yaml
+|-- tools/            # development and release helper scripts
+|-- amprime/          # the installed Python package
+|-- workflow/
+|   |-- Snakefile
+|   |-- rules/        # Snakemake rules
+|   |-- scripts/      # standalone Python command-line tools
+|   `-- envs/         # legacy environment.yaml
+`-- results/          # generated outputs (not committed)
 ```
 
-Both dependency files include the same default runtime: Snakemake, Python 3.12, Biopython, NumPy, Matplotlib, `ncbi-genome-download`, PyYAML, Python `markdown`, VSEARCH, MUSCLE, and SeqKit. Pixi installs the command-line tools on Linux and Apple Silicon macOS; Windows installs them through Scoop when the workflow runs.
-
-### Windows command-line tools
-
-On Windows, AmPrime requires VSEARCH, MUSCLE, and SeqKit. Install Scoop first, then run:
-
-```powershell
-scoop bucket add main-plus https://github.com/Scoopforge/Main-Plus
-scoop install vsearch muscle seqkit
-```
+The GitHub Actions workflow downloads and caches the Borrelia test archive before running `pixi run ci`; the archive is paired with a SHA-256 sidecar and an explicit cache snapshot version. Bump that version in the workflow when refreshing the reference dataset. Local `pixi run ci` does not access NCBI. Pushing a tag like `v0.1.0` runs the release workflow, verifies a clean conda-package install, builds source archives plus a conda package under `dist/`, uploads them as workflow artifacts, and attaches them to the GitHub Release.
 
 ## Limitations
 
@@ -386,4 +347,4 @@ scoop install vsearch muscle seqkit
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+See [LICENSE](LICENSE).

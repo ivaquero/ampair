@@ -50,6 +50,9 @@ exclude = [
 ]
 
 [tool.ty.environment]
+# Pixi environments are not discovered automatically (they set CONDA_PREFIX,
+# not VIRTUAL_ENV), so point ty at the default environment explicitly.
+python = ".pixi/envs/default"
 extra-paths = [
   "workflow/scripts",
   "tools",
