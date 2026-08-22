@@ -13,11 +13,7 @@ _HTML_TEMPLATE = load_template("gene_report_cross.html")
 
 
 def _read_metrics(path: str) -> dict[str, str]:
-    return {
-        row["metric"]: row["value"]
-        for row in read_tsv(path)
-        if row.get("metric")
-    }
+    return {row["metric"]: row["value"] for row in read_tsv(path) if row.get("metric")}
 
 
 def _percent(metrics: dict[str, str], key: str) -> str:
@@ -65,9 +61,7 @@ def _build_html(summary_paths: list[str]) -> str:
         ("unique_amplicon_alleles", "Unique alleles"),
     ]
     header_html = "".join(f"<th>{escape(label)}</th>" for _, label in headers)
-    return render_page(
-        _HTML_TEMPLATE, HEADER_HTML=header_html, BODY_ROWS=body_rows
-    )
+    return render_page(_HTML_TEMPLATE, HEADER_HTML=header_html, BODY_ROWS=body_rows)
 
 
 def main() -> None:

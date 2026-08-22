@@ -27,14 +27,14 @@ def snapshot_metadata_path(archive: Path) -> Path:
     return archive.with_name(archive.name + ".json")
 
 
-def extend_pythonpath(scripts_dir: str | Path, env: dict[str, str] | None = None) -> dict[str, str]:
+def extend_pythonpath(
+    scripts_dir: str | Path, env: dict[str, str] | None = None
+) -> dict[str, str]:
     """Return ``env`` with ``scripts_dir`` prepended to PYTHONPATH."""
     env = dict(os.environ) if env is None else dict(env)
     pythonpath = env.get("PYTHONPATH")
     env["PYTHONPATH"] = (
-        str(scripts_dir)
-        if not pythonpath
-        else f"{scripts_dir}{os.pathsep}{pythonpath}"
+        str(scripts_dir) if not pythonpath else f"{scripts_dir}{os.pathsep}{pythonpath}"
     )
     return env
 

@@ -2,9 +2,9 @@
 """Compile all project Python files."""
 
 import py_compile
-from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+from _shared import ROOT
+
 PYTHON_FILES = sorted(
     [
         *(ROOT / "workflow" / "scripts").glob("*.py"),

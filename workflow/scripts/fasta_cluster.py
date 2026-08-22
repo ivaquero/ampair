@@ -39,12 +39,7 @@ def cluster_with_vsearch(executable, input_path, output_path, identity, threads)
         str(threads),
     ]
     log.info("Running VSEARCH: %s", " ".join(command))
-    completed = subprocess.run(  # noqa: S603 - executable came from PATH lookup.
-        command,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    completed = subprocess.run(command, capture_output=True, text=True, check=False)
     log_process_output(completed, log)
     if completed.returncode != 0:
         raise RuntimeError(
@@ -91,15 +86,14 @@ def main():
     cluster_with_vsearch(
         executable, args.input, args.output, args.identity, args.threads
     )
-    n_centroids = count_fasta_records(args.output)
+    n_out = count_fasta_records(args.output)
 
-    if n_centroids > WARN_CENTROID_COUNT:
+    if n_out > WARN_CENTROID_COUNT:
         log.warning(
             "Many centroids retained (%d). Alignment and primer design may be slow.",
-            n_centroids,
+            n_out,
         )
 
-    n_out = count_fasta_records(args.output)
     elapsed = perf_counter() - started
     log.info(
         "Clustered %d sequences into %d centroids with VSEARCH in %.2f s",

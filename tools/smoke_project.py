@@ -161,7 +161,7 @@ def check_download_manifest():
                     "label": "genomic",
                     "format": "fasta",
                     "output_dir": "genomic",
-                    **genomes_download.summarize_fna_dir(genomic),
+                    **genomes_download.fasta_directory_summary(genomic),
                 }
             ],
             config_sha256="config-test",

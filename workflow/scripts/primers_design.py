@@ -116,9 +116,7 @@ def _rollmean(values, k: int):
 # ---------------------------------------------------------------------------
 # Core computation
 # ---------------------------------------------------------------------------
-def _compute_column_stats(
-    dna_matrix: np.ndarray, n_seqs: int, min_allele_freq: float
-):
+def _compute_column_stats(dna_matrix: np.ndarray, n_seqs: int, min_allele_freq: float):
     """Return (consensus, divs, pos_code, pos_fold) in a single column pass.
 
     ``consensus`` is the most frequent base (gaps and Ns included), ``divs``

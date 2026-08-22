@@ -13,7 +13,16 @@ if str(_PROJECT_ROOT) not in sys.path:
 
 from amprime.provenance import fasta_directory_summary, sha256_file
 
-__all__ = ["configure_logging", "fasta_directory_summary", "sha256_file"]
+__all__ = [
+    "IUPAC_COMPLEMENT_TABLE",
+    "config_param",
+    "configure_logging",
+    "fasta_directory_summary",
+    "log_process_output",
+    "required_param",
+    "reverse_complement",
+    "sha256_file",
+]
 IUPAC_COMPLEMENT_TABLE = str.maketrans(
     "ACGTRYMKSWHBVDNacgtrymkswhbvdn", "TGCAYRKMSWDVBHNtgcayrkmswdvbhn"
 )
