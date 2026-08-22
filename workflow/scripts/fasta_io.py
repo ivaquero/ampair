@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Small FASTA I/O helpers shared by AmPrime command-line tools."""
 
+from functools import lru_cache
 from pathlib import Path
 
 
@@ -34,5 +35,17 @@ def write_fasta(records, path):
             fh.writelines(seq[i : i + 80] + "\n" for i in range(0, len(seq), 80))
 
 
-def count_fasta_records(path):
+@lru_cache(maxsize=128)
+def _count_cached(path: str, mtime_ns: int, size: int) -> int:
     return sum(1 for _ in parse_fasta(path))
+
+
+def count_fasta_records(path):
+    """Count FASTA records, caching by path + mtime + size.
+
+    Files produced by this process (cluster/align outputs) are counted right
+    after being written; the cache avoids re-parsing the same file multiple
+    times while still invalidating on any content change.
+    """
+    stat = Path(path).stat()
+    return _count_cached(str(path), stat.st_mtime_ns, stat.st_size)

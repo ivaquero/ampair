@@ -103,16 +103,6 @@ def _shannon(col) -> float:
     return float(-np.sum(probs * np.log(probs)))
 
 
-def _consensus(dna_matrix):
-    """Most frequent base per column."""
-    n = dna_matrix.shape[1]
-    cons = np.empty(n, dtype="<U1")
-    for i in range(n):
-        uniq, cnt = np.unique(dna_matrix[:, i], return_counts=True)
-        cons[i] = uniq[np.argmax(cnt)]
-    return cons
-
-
 def _rollmean(values, k: int):
     """Rolling mean with NaN padding at edges (matches R's zoo::rollmean)."""
     result = np.full(len(values), np.nan)
@@ -126,39 +116,57 @@ def _rollmean(values, k: int):
 # ---------------------------------------------------------------------------
 # Core computation
 # ---------------------------------------------------------------------------
-def _compute_position_annotations(
+def _compute_column_stats(
     dna_matrix: np.ndarray, n_seqs: int, min_allele_freq: float
 ):
-    """Return (pos_code, pos_fold): IUPAC letter and fold for each column."""
+    """Return (consensus, divs, pos_code, pos_fold) in a single column pass.
+
+    ``consensus`` is the most frequent base (gaps and Ns included), ``divs``
+    is the Shannon entropy over observed A/C/G/T, and ``pos_code``/``pos_fold``
+    are the IUPAC degeneracy code and fold for each column.
+    """
     aln_len = dna_matrix.shape[1]
+    consensus = np.empty(aln_len, dtype="<U1")
+    divs = np.empty(aln_len, dtype=float)
     pos_code = np.empty(aln_len, dtype="<U1")
     pos_fold = np.ones(aln_len, dtype=int)
 
     for i in range(aln_len):
-        col = dna_matrix[:, i]
-        unique, counts = np.unique(col, return_counts=True)
+        unique, counts = np.unique(dna_matrix[:, i], return_counts=True)
 
-        # drop gaps and Ns
+        # consensus: most frequent base, gaps/Ns included.
+        consensus[i] = unique[np.argmax(counts)]
+
+        # entropy: observed A/C/G/T only.
+        is_acgt = np.isin(unique, ["a", "c", "g", "t"])
+        acgt_counts = counts[is_acgt]
+        if acgt_counts.size:
+            probs = acgt_counts / acgt_counts.sum()
+            probs = probs[probs > 0]
+            divs[i] = float(-np.sum(probs * np.log(probs)))
+        else:
+            divs[i] = 0.0
+
+        # annotations: drop gaps and Ns, apply min_allele_freq threshold.
         mask = ~np.isin(unique, ["-", "n"])
-        unique = unique[mask]
-        counts = counts[mask]
-
-        if len(unique) == 0:  # all-gap column
+        bases = unique[mask]
+        base_counts = counts[mask]
+        if bases.size == 0:  # all-gap column
             pos_code[i] = "N"
             pos_fold[i] = 1
             continue
 
-        freqs = counts / n_seqs
-        keep = unique[freqs >= min_allele_freq]
+        freqs = base_counts / n_seqs
+        keep = bases[freqs >= min_allele_freq]
         keep = np.array([b for b in keep if b.upper() in _VALID_BASES])
 
-        if len(keep) == 0:  # nothing passes freq threshold
-            keep = np.array([unique[np.argmax(counts)]])
+        if keep.size == 0:  # nothing passes freq threshold
+            keep = np.array([bases[np.argmax(base_counts)]])
 
         pos_code[i] = _iupac_encode("".join(keep))
         pos_fold[i] = len(keep)
 
-    return pos_code, pos_fold
+    return consensus, divs, pos_code, pos_fold
 
 
 def _build_kmers(consensus, pos_code, pos_fold, divs, primer_len):
@@ -429,15 +437,13 @@ def main():
     n_seqs, aln_len = dna_matrix.shape
 
     log.info("Loaded %d sequences, alignment length %d bp", n_seqs, aln_len)
-    # --- 2. Per-position Shannon entropy ----------------------------------
-    consensus = _consensus(dna_matrix)
-    divs = np.array([_shannon(dna_matrix[:, i]) for i in range(aln_len)])
-    log.info("Mean per-position entropy: %.4f", np.mean(divs))
-
-    # --- 3. Per-position IUPAC degenerate code + fold ---------------------
-    pos_code, pos_fold = _compute_position_annotations(
+    # --- 2. Per-column stats (entropy, consensus, IUPAC code + fold) ------
+    consensus, divs, pos_code, pos_fold = _compute_column_stats(
         dna_matrix, n_seqs, min_allele_freq
     )
+    log.info("Mean per-position entropy: %.4f", np.mean(divs))
+
+    # --- 3. Degeneracy summary -------------------------------------------
     log.info(
         "Degenerate columns (fold > 1): %d / %d", int(np.sum(pos_fold > 1)), aln_len
     )
