@@ -21,23 +21,6 @@ log = logging.getLogger(__name__)
 WARN_FASTA_FILE_COUNT = 1000
 
 
-def header_matches(header, names):
-    """Return True if a FASTA header matches any target gene or alias."""
-    h = header.lower()
-
-    gene_tag = re.search(r"\[gene=([^\]]+)\]", h)
-    if gene_tag and gene_tag.group(1).strip() in names:
-        return True
-
-    product_tag = re.search(r"\[product=([^\]]+)\]", h)
-    if product_tag:
-        product = product_tag.group(1).strip()
-        if any(name in product for name in names):
-            return True
-
-    return False
-
-
 def _fna_files(directory, label):
     fna_files = sorted(
         os.path.join(directory, filename)
@@ -110,11 +93,6 @@ def scan_fasta_dirs(directories, names_by_gene):
         elapsed,
     )
     return extracted
-
-
-def extract_from_dir(directory, names, label, gene):
-    """Scan one FASTA directory and return matching records for one gene."""
-    return scan_fasta_dirs([(label, directory)], {gene: names})[gene]
 
 
 def _names_by_gene(cfg):

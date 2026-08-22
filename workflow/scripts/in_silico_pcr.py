@@ -261,8 +261,8 @@ def _scan_genome_batch(task):
             "locate",
             "--pattern-file",
             pattern_file,
-#            "--max-mismatch",
-#            str(mismatch),
+            #            "--max-mismatch",
+            #            str(mismatch),
             "--degenerate",
             "--bed",
             "--threads",
@@ -270,12 +270,7 @@ def _scan_genome_batch(task):
             "--quiet",
             str(merged_fasta),
         ]
-        completed = subprocess.run(  # noqa: S603 - executable came from PATH lookup.
-            command,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+        completed = subprocess.run(command, capture_output=True, text=True, check=False)
     if completed.returncode != 0:
         details = (completed.stderr or completed.stdout).strip()
         raise RuntimeError(
@@ -493,15 +488,7 @@ def main():
             for start in range(0, total_genomes, args.batch_size)
         ]
         tasks = [
-            (
-                executable,
-                batch,
-                pattern_file,
-                pattern_map,
-                mismatch,
-                valid_lo,
-                valid_hi,
-            )
+            (executable, batch, pattern_file, pattern_map, mismatch, valid_lo, valid_hi)
             for batch in genome_batches
         ]
         if workers > 1:
@@ -550,10 +537,7 @@ def main():
 
     write_summary(rows, args.out_tsv)
     _write_species_outputs(
-        args.species_summary,
-        args.species_tsv,
-        best_candidate,
-        total_genomes,
+        args.species_summary, args.species_tsv, best_candidate, total_genomes
     )
     elapsed = perf_counter() - started
     log.info(

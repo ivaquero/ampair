@@ -8,7 +8,6 @@
 
 import argparse
 import base64
-import csv
 import logging
 import os
 from datetime import UTC, datetime
@@ -16,13 +15,12 @@ from html import escape
 
 from common import sha256_file
 from config_schema import load_config_file
+from report_common import load_template, read_tsv, render_page
 
 # =============================================================================
 # HTML page shell - loaded from separate .html file
 # =============================================================================
-_HTML_DIR = os.path.dirname(__file__)
-with open(os.path.join(_HTML_DIR, "gene_report.html"), encoding="utf-8") as _fh:
-    _PAGE = _fh.read()
+_PAGE = load_template("gene_report.html")
 
 # =============================================================================
 # Markdown engine - tables turned on
@@ -33,11 +31,6 @@ _MD_EXTENSIONS = ["tables"]
 # =============================================================================
 # Helpers
 # =============================================================================
-def _read_tsv(path):
-    with open(path, newline="", encoding="utf-8") as fh:
-        return [dict(row) for row in csv.DictReader(fh, delimiter="\t")]
-
-
 def _b64_png(path):
     with open(path, "rb") as fh:
         return base64.b64encode(fh.read()).decode()
@@ -322,17 +315,17 @@ def main():
         raise SystemExit("missing --genus or config setting: genus")
 
     # -- read inputs -------------------------------------------------------
-    primers = _read_tsv(args.primers_tsv) if os.path.isfile(args.primers_tsv) else []
+    primers = read_tsv(args.primers_tsv) if os.path.isfile(args.primers_tsv) else []
     amplicons = (
-        _read_tsv(args.amplicons_tsv) if os.path.isfile(args.amplicons_tsv) else []
+        read_tsv(args.amplicons_tsv) if os.path.isfile(args.amplicons_tsv) else []
     )
     alignment_meta = (
-        _read_tsv(args.alignment_meta)
+        read_tsv(args.alignment_meta)
         if args.alignment_meta and os.path.isfile(args.alignment_meta)
         else []
     )
     manifest_rows = (
-        _read_tsv(args.download_manifest)
+        read_tsv(args.download_manifest)
         if args.download_manifest and os.path.isfile(args.download_manifest)
         else []
     )
@@ -340,7 +333,7 @@ def main():
     if args.species_summary and os.path.isfile(args.species_summary):
         species_metrics = {
             row.get("metric", ""): row.get("value", "")
-            for row in _read_tsv(args.species_summary)
+            for row in read_tsv(args.species_summary)
             if row.get("metric")
         }
     data_fingerprints = {
@@ -384,7 +377,7 @@ def main():
     # -- markdown to HTML, then wrap in page shell --------------------------
     body_html = markdown.markdown(body_md, extensions=_MD_EXTENSIONS)
     title = f"{genus} - {gene} primer design"
-    html = _PAGE.replace("{TITLE}", escape(title)).replace("{CONTENT}", body_html)
+    html = render_page(_PAGE, TITLE=escape(title), CONTENT=body_html)
 
     # -- write --------------------------------------------------------------
     out_html = args.out_html

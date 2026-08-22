@@ -18,7 +18,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from time import perf_counter
 
-from common import configure_logging
+from common import configure_logging, log_process_output
 from dependencies import ensure_tool
 from fasta_io import count_fasta_records, parse_fasta
 
@@ -29,7 +29,7 @@ WARN_ALIGNMENT_BP = 2_000_000
 
 def _backend_version(executable):
     try:
-        result = subprocess.run(  # noqa: S603 - executable came from PATH lookup.
+        result = subprocess.run(
             [executable, "--version"],
             capture_output=True,
             text=True,
@@ -96,16 +96,8 @@ def run_muscle(executable, input_path, output_path, threads):
         if output_tmp.exists():
             output_tmp.unlink()
         log.info("Running MUSCLE: %s", " ".join(str(part) for part in command))
-        completed = subprocess.run(  # noqa: S603 - executable came from PATH lookup.
-            command,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        if completed.stdout:
-            log.info(completed.stdout.rstrip())
-        if completed.stderr:
-            log.info(completed.stderr.rstrip())
+        completed = subprocess.run(command, capture_output=True, text=True, check=False)
+        log_process_output(completed, log)
         if (
             completed.returncode == 0
             and output_tmp.exists()

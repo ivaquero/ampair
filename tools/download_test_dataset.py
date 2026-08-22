@@ -16,6 +16,7 @@ import time
 from pathlib import Path
 
 import yaml
+from _shared import extend_pythonpath, sha256_file, snapshot_metadata_path
 
 ROOT = Path(__file__).resolve().parents[1]
 DOWNLOAD_SCRIPT = ROOT / "workflow" / "scripts" / "genomes_download.py"
@@ -24,10 +25,6 @@ DEFAULT_OUTPUT = ROOT / "data" / "borrelia-genomes.tar.gz"
 SNAPSHOT_SCHEMA_VERSION = 1
 DOWNLOAD_ATTEMPTS = 3
 DOWNLOAD_RETRY_DELAY_SECONDS = 5
-
-
-def snapshot_metadata_path(archive: Path) -> Path:
-    return archive.with_name(archive.name + ".json")
 
 
 def _snapshot_id(manifest: Path, genus: str, assembly_level: str) -> str:
@@ -49,11 +46,7 @@ def _snapshot_id(manifest: Path, genus: str, assembly_level: str) -> str:
 
 
 def _write_snapshot_metadata(
-    archive: Path,
-    manifest: Path,
-    genus: str,
-    assembly_level: str,
-    config: Path,
+    archive: Path, manifest: Path, genus: str, assembly_level: str, config: Path
 ) -> None:
     metadata = {
         "schema_version": SNAPSHOT_SCHEMA_VERSION,
@@ -114,10 +107,7 @@ def download_archive(output: Path, genus: str, config: Path) -> None:
         for attempt in range(1, DOWNLOAD_ATTEMPTS + 1):
             try:
                 completed = subprocess.run(
-                    command,
-                    cwd=ROOT,
-                    check=False,
-                    env=_project_env(),
+                    command, cwd=ROOT, check=False, env=_project_env()
                 )
             except OSError as exc:
                 if attempt == DOWNLOAD_ATTEMPTS:
@@ -162,11 +152,7 @@ def download_archive(output: Path, genus: str, config: Path) -> None:
             archive.add(genomes, arcname="genomes")
         os.replace(partial_output, output)
         _write_snapshot_metadata(
-            output,
-            manifest,
-            genus,
-            _assembly_level(config),
-            config,
+            output, manifest, genus, _assembly_level(config), config
         )
 
 
@@ -183,22 +169,8 @@ def _format_returncode(returncode: int) -> str:
     return str(returncode)
 
 
-def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as fh:
-        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
 def _project_env() -> dict[str, str]:
-    env = os.environ.copy()
-    scripts_dir = str(DOWNLOAD_SCRIPT.parent)
-    pythonpath = env.get("PYTHONPATH")
-    env["PYTHONPATH"] = (
-        scripts_dir if not pythonpath else f"{scripts_dir}{os.pathsep}{pythonpath}"
-    )
-    return env
+    return extend_pythonpath(DOWNLOAD_SCRIPT.parent)
 
 
 def main() -> None:

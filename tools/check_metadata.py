@@ -8,8 +8,8 @@ import tomllib
 from pathlib import Path
 
 import yaml
+from _shared import ROOT
 
-ROOT = Path(__file__).resolve().parents[1]
 DEV_ONLY_DEPS = {"ruff", "pyrefly"}
 PLATFORM_ONLY_DEPS = {"muscle", "seqkit", "vsearch"}
 

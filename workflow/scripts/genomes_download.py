@@ -89,10 +89,6 @@ def decompress_gzip_files(*directories):
             gz_path.unlink()
 
 
-def summarize_fna_dir(directory):
-    return fasta_directory_summary(directory)
-
-
 def write_manifest(path, genus, assembly_level, rows, config_sha256=""):
     if not path:
         return
@@ -170,7 +166,7 @@ def main():
 
     manifest_rows = []
     for label, fmt, out_dir in downloads:
-        summary = summarize_fna_dir(out_dir)
+        summary = fasta_directory_summary(out_dir)
         manifest_rows.append(
             {"label": label, "format": fmt, "output_dir": out_dir, **summary}
         )

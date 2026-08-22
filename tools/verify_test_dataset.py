@@ -4,21 +4,10 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 from pathlib import Path
 
-
-def snapshot_metadata_path(archive: Path) -> Path:
-    return archive.with_name(archive.name + ".json")
-
-
-def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as fh:
-        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
+from _shared import sha256_file, snapshot_metadata_path
 
 
 def verify(archive: Path) -> dict[str, object]:

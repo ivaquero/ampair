@@ -10,7 +10,8 @@ import tempfile
 import tomllib
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[1]
+from _shared import ROOT
+
 DIST_CHANNEL = ROOT / "dist" / "conda-channel"
 PACKAGE_NAME = "amprime"
 PACKAGE_VERSION = tomllib.loads((ROOT / "pixi.toml").read_text(encoding="utf-8"))[
@@ -35,7 +36,7 @@ def clean_env():
 
 def run(command, cwd, stdout=None):
     print(f"+ {' '.join(str(part) for part in command)}", flush=True)
-    return subprocess.run(  # noqa: S603 - internal calls use fixed Pixi commands; shell is disabled.
+    return subprocess.run(
         command, cwd=cwd, env=clean_env(), check=True, text=True, stdout=stdout
     )
 
@@ -93,14 +94,7 @@ def assert_installed_package(channel_url: str, keep_tmp: bool) -> Path:
         test_data.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(ROOT / "data" / "borrelia-genomes.tar.gz", test_data)
         run(
-            [
-                "pixi",
-                "run",
-                "amprime",
-                "functional-test",
-                "--archive",
-                str(test_data),
-            ],
+            ["pixi", "run", "amprime", "functional-test", "--archive", str(test_data)],
             cwd=project,
         )
         print(f"clean install test ok: {PACKAGE_NAME} from {channel_url}")

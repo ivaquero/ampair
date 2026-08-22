@@ -12,17 +12,14 @@ import tempfile
 from pathlib import Path
 from time import perf_counter
 
-ROOT = Path(__file__).resolve().parents[1]
-SCRIPTS = ROOT / "workflow" / "scripts"
+from _shared import ROOT, SCRIPTS, load_script_module, smoke_env
+
+reverse_complement = load_script_module("common").reverse_complement
+
 GENOME_COUNT = 4
 GENOME_LENGTH = 20_000
 PRIMER_COUNT = 4
 DEFAULT_BUDGET_SECONDS = 30.0
-
-
-def reverse_complement(sequence: str) -> str:
-    table = str.maketrans("ACGT", "TGCA")
-    return sequence.translate(table)[::-1]
 
 
 def write_fixture(genome_dir: Path, primers_path: Path) -> None:
@@ -48,9 +45,7 @@ def write_fixture(genome_dir: Path, primers_path: Path) -> None:
     ]
     with primers_path.open("w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(
-            fh,
-            fieldnames=["primer_id", "fwd", "rev", "combined_score"],
-            delimiter="\t",
+            fh, fieldnames=["primer_id", "fwd", "rev", "combined_score"], delimiter="\t"
         )
         writer.writeheader()
         for rank, row in enumerate(rows, 1):
@@ -114,16 +109,10 @@ def main() -> int:
             "--log",
             str(log_path),
         ]
-        env = os.environ.copy()
-        env["PYTHONPATH"] = str(SCRIPTS) + os.pathsep + env.get("PYTHONPATH", "")
+        env = smoke_env()
         started = perf_counter()
-        completed = subprocess.run(  # noqa: S603 - fixed project script and arguments.
-            command,
-            cwd=ROOT,
-            env=env,
-            capture_output=True,
-            text=True,
-            check=False,
+        completed = subprocess.run(
+            command, cwd=ROOT, env=env, capture_output=True, text=True, check=False
         )
         elapsed = perf_counter() - started
         if completed.returncode != 0:
