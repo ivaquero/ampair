@@ -32,23 +32,27 @@ config = "amprime/config"
 workflow = "amprime/workflow"
 Snakefile = "amprime/Snakefile"
 
-[tool.pyrefly]
-# Workflow scripts are executable modules and import their sibling modules
-# (for example, config_schema.py) as top-level imports.
-project-includes = [
-  "amprime/**/*.py",
-  "tools/**/*.py",
-  "workflow/scripts/**/*.py",
-]
-project-excludes = [
-  ".pixi/**",
-  ".snakemake/**",
-  "dist/**",
-  "results/**",
-]
-search-path = [
-  ".",
+[tool.ty]
+# Workflow scripts and tools import sibling modules (e.g. config_schema.py,
+# _shared.py) as top-level imports, so their directories are extra paths.
+
+[tool.ty.src]
+include = [
+  "amprime",
+  "tools",
   "workflow/scripts",
+]
+exclude = [
+  ".pixi",
+  ".snakemake",
+  "dist",
+  "results",
+]
+
+[tool.ty.environment]
+extra-paths = [
+  "workflow/scripts",
+  "tools",
 ]
 python-version = "3.12"
 

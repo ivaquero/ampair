@@ -10,7 +10,7 @@ from pathlib import Path
 import yaml
 from _shared import ROOT
 
-DEV_ONLY_DEPS = {"ruff", "pyrefly"}
+DEV_ONLY_DEPS = {"ruff", "ty"}
 PLATFORM_ONLY_DEPS = {"muscle", "seqkit", "vsearch"}
 
 

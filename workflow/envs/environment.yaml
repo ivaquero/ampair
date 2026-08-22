@@ -29,4 +29,4 @@ dependencies:
 
   # development checks
   - ruff
-  - pyrefly=1.2
+  - ty

@@ -20,7 +20,7 @@ pyyaml = "*"
 ncbi-genome-download = "*"
 markdown = "*"
 ruff = "*"
-pyrefly = "1.2.*"
+ty = "*"
 
 # VSEARCH, MUSCLE, and SeqKit are installed automatically on the supported Unix platforms. Windows
 # installs it through Scoop when the clustering step runs.
@@ -39,7 +39,7 @@ compile = "python tools/compile_project.py"
 metadata-check = "python tools/check_metadata.py"
 lint = "ruff check workflow/scripts tools amprime"
 format-check = "ruff format --check workflow/scripts tools amprime"
-pyrefly-check = "pyrefly check"
+ty-check = "ty check"
 ensure-dependencies = "python workflow/scripts/dependencies.py"
 performance-smoke = "python tools/performance_smoke.py"
 smoke = { cmd = "python tools/smoke_project.py", depends-on = ["ensure-dependencies"] }
@@ -50,7 +50,7 @@ ci = { depends-on = [
   "metadata-check",
   "lint",
   "format-check",
-  "pyrefly-check",
+  "ty-check",
   "ensure-dependencies",
   "performance-smoke",
   "smoke",
