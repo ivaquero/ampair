@@ -1,9 +1,0 @@
-{
-  "schema_version": 1,
-  "snapshot_id": "synthetic-fixture-v1",
-  "archive_sha256": "76c25faa2bca1ce0561017e861af3948753996400449a3064229fc65ce88dc32",
-  "archive_size": 440,
-  "config_sha256": "7c138943eab3091da8cf393193cdae9b908122123b3ccb3eddb01f74ca51c514",
-  "genus": "Borrelia",
-  "assembly_level": "complete"
-}
