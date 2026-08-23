@@ -28,7 +28,6 @@ __pycache__/
 .conda/
 .pixi/
 envs/*/
-test_data/
 run_*.log
 
 data/*
