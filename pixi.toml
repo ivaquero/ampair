@@ -54,9 +54,9 @@ dry-run = "snakemake --snakefile Snakefile -n all --resources mem_mb=8192 --shar
 pipeline = { cmd = "snakemake --snakefile Snakefile --cores 4 all --resources mem_mb=8192 --shared-fs-usage input-output persistence software-deployment sources", depends-on = ["ensure-dependencies"] }
 ci = { depends-on = ["compile", "metadata-check", "lint", "format-check", "ty-check", "ensure-dependencies", "performance-smoke", "smoke", "dry-run", "verify-ci-test-data", "functional-test-ci"] }
 functional-test = { cmd = "python -m ampair functional-test", depends-on = ["ensure-dependencies"] }
-download-ci-test-data = "python tools/download_test_dataset.py --output data/borrelia-genomes.tar.gz"
-verify-ci-test-data = "python tools/verify_test_dataset.py --archive data/borrelia-genomes.tar.gz"
-functional-test-ci = { cmd = "python -m ampair functional-test --archive data/borrelia-genomes.tar.gz", depends-on = ["ensure-dependencies"] }
+download-ci-test-data = "python tools/download_test_dataset.py --output test_data/borrelia-genomes.tar.gz"
+verify-ci-test-data = "python tools/verify_test_dataset.py --archive test_data/borrelia-genomes.tar.gz"
+functional-test-ci = { cmd = "python -m ampair functional-test --archive test_data/borrelia-genomes.tar.gz", depends-on = ["ensure-dependencies"] }
 source-archive = "python tools/package_release.py"
 conda-build = "pixi publish --path . --target-dir dist/conda --force"
 conda-install-test = "python tools/test_built_package.py"
