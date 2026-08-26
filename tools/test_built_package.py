@@ -90,9 +90,9 @@ def assert_installed_package(channel_url: str, keep_tmp: bool) -> Path:
         run(["pixi", "run", "ampair", "--help"], cwd=project)
         run(["pixi", "run", "python", "-c", install_assertion_code()], cwd=project)
         run(["pixi", "run", "ampair", "run", "--dry-run"], cwd=project)
-        test_data = project / "data" / "borrelia-genomes.tar.gz"
+        test_data = project / "test_data" / "borrelia-genomes.tar.gz"
         test_data.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(ROOT / "data" / "borrelia-genomes.tar.gz", test_data)
+        shutil.copy2(ROOT / "test_data" / "borrelia-genomes.tar.gz", test_data)
         run(
             ["pixi", "run", "ampair", "functional-test", "--archive", str(test_data)],
             cwd=project,

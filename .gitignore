@@ -30,9 +30,7 @@ __pycache__/
 envs/*/
 run_*.log
 
-data/*
-!data/.gitkeep
-!data/*.tar.gz.json
+
 download-debug/
 
 summary.md

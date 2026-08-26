@@ -23,7 +23,7 @@ from .provenance import fasta_directory_summary, sha256_file
 
 DEFAULT_GENUS = "Borrelia"
 DEFAULT_GENE = "recG"
-DEFAULT_TEST_ARCHIVE = Path("data") / "borrelia-genomes.tar.gz"
+DEFAULT_TEST_ARCHIVE = Path("test_data") / "borrelia-genomes.tar.gz"
 
 
 def _safe_component(value: str, label: str) -> str:
@@ -352,7 +352,7 @@ class AmPairProject:
         run_kwargs: dict = {"cwd": self.root, "check": False, "text": True, "env": env}
         if capture_output:
             run_kwargs["capture_output"] = True
-        completed = subprocess.run(command, **run_kwargs)  # noqa: S603 - fixed to Snakemake; shell disabled.
+        completed = subprocess.run(command, **run_kwargs)
         if completed.returncode != 0:
             raise subprocess.CalledProcessError(
                 completed.returncode,

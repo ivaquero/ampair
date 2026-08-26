@@ -35,8 +35,8 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            data/borrelia-genomes.tar.gz
-            data/borrelia-genomes.tar.gz.json
+            test_data/borrelia-genomes.tar.gz
+            test_data/borrelia-genomes.tar.gz.json
           key: ampair-borrelia-genomes-${{ runner.os }}-${{ env.TEST_DATASET_VERSION }}-${{ hashFiles('pixi.lock', 'config/config.yaml', 'workflow/Snakefile', 'tools/download_test_dataset.py', 'tools/verify_test_dataset.py', 'workflow/scripts/genomes_download.py', 'workflow/scripts/gene_extract.py', 'workflow/scripts/common.py') }}
 
       - name: Prepare Scoop on Windows
