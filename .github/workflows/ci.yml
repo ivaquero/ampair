@@ -70,4 +70,4 @@ jobs:
         run: pixi run download-ci-test-data
 
       - name: Run project checks
-        run: pixi run ci
+        run: pixi run -e dev ci
