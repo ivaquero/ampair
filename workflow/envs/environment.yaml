@@ -25,7 +25,3 @@ dependencies:
   - vsearch  # [unix]
   - muscle  # [unix]
   - seqkit  # [unix]
-
-  # development checks
-  - ruff
-  - ty
