@@ -1,0 +1,36 @@
+# Single environment containing all pipeline dependencies.
+# Use this when --use-conda is unavailable (e.g., HPC clusters where conda
+# can't be installed). Install once, run the pipeline without --use-conda.
+#
+#   micromamba env create -f envs/all-in-one.yaml
+#   micromamba activate primer-pipeline
+#   snakemake --cores 4
+
+name: primer-pipeline
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  # pipeline runner
+  - snakemake-minimal>=8
+
+  # taxid resolution + gene extraction
+  - python=3.11
+  - biopython
+
+  # genome download
+  - ncbi-genome-download
+
+  # sequence tools
+  - vsearch
+  - muscle=5
+  - seqkit
+
+  # R + reporting
+  - r-base>=4.3
+  - r-seqinr
+  - r-zoo
+  - r-knitr
+  - r-rmarkdown
+  - r-kableextra
+  - pandoc

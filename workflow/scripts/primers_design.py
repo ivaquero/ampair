@@ -26,8 +26,8 @@ import logging
 import os
 from bisect import bisect_left, bisect_right
 from time import perf_counter
-from typing import Any
 
+import numpy as np
 from common import (
     config_param as _param,
     configure_logging,
@@ -36,9 +36,12 @@ from common import (
 )
 from config_schema import load_config_file
 from fasta_io import parse_fasta
+from primers_plot import plot_diversity, plot_pair_heatmap, plot_placeholder
 
-plt: Any = None
-np: Any = None
+# numpy is imported above for the column/entropy helpers. matplotlib is only
+# needed by primers_plot (imported above), which sets a non-interactive Agg
+# backend and is used for the final figures.
+
 
 _IUPAC_MAP = {
     "A": "A",
@@ -188,13 +191,28 @@ def _build_kmers(consensus, pos_code, pos_fold, divs, primer_len):
 
 
 def _pair_sort_key(row):
+    # Primary: combined_score descending (best first).
+    # Tiebreak: total_fold ascending so that, among equally scoring pairs, the
+    # LESS degenerate (smaller pool) design is preferred -- matching the
+    # original R pipeline's order(-combined_score, total_fold) behaviour.
     return (-row["combined_score"], row["total_fold"], row["fwd_pos"], row["rev_pos"])
 
 
 def _evaluate_pairs(
-    candidates, amplicon_min_len, amplicon_max_len, GC_tol, max_results
+    candidates,
+    amplicon_min_len,
+    amplicon_max_len,
+    GC_tol,
+    max_results,
+    score_weight_fold=0.0,
 ):
-    """Return the best primer pairs without retaining an unbounded result set."""
+    """Return the best primer pairs without retaining an unbounded result set.
+
+    When ``score_weight_fold`` > 0 a degeneracy penalty is added:
+        score = 1 / (|pair_div| + 10*delta_gc^2 + w_fold*log2(total_fold) + 0.01)
+    so that high-degeneracy (high-fold) primer pairs are de-ranked. With
+    ``score_weight_fold == 0`` the score keeps the original (no fold term) form.
+    """
     results = []
     candidates = sorted(candidates, key=lambda item: item["pos"])
     positions = [candidate["pos"] for candidate in candidates]
@@ -213,7 +231,10 @@ def _evaluate_pairs(
 
             pair_div = ci["divs"] + cj["divs"]
             total_fold = ci["fold"] * cj["fold"]
-            score = 1.0 / (abs(pair_div) + 10.0 * delta_gc**2 + 0.01)
+            fold_penalty = (
+                score_weight_fold * np.log2(total_fold) if score_weight_fold else 0.0
+            )
+            score = 1.0 / (abs(pair_div) + 10.0 * delta_gc**2 + fold_penalty + 0.01)
 
             results.append(
                 {
@@ -260,81 +281,8 @@ def _write_empty_tsv(path):
     _write_tsv([], path)
 
 
-def _plot_placeholder(message, aln_file, out_plot, log):
-    os.makedirs(os.path.dirname(out_plot), exist_ok=True)
-    fig, ax = plt.subplots(figsize=(12, 6))
-    ax.text(0.5, 0.5, message, ha="center", va="center", wrap=True)
-    ax.set_axis_off()
-    ax.set_title(f"Sequence diversity - {os.path.basename(aln_file)}")
-    fig.tight_layout()
-    fig.savefig(out_plot, dpi=150)
-    plt.close(fig)
-    log.info("Wrote placeholder diversity plot to %s", out_plot)
-
-
-# ---------------------------------------------------------------------------
-# Plot
-# ---------------------------------------------------------------------------
-def _plot_diversity(
-    divs, roll_means, roll_k, results, top_n, primer_len, aln_file, out_plot, log
-):
-    os.makedirs(os.path.dirname(out_plot), exist_ok=True)
-    fig, ax = plt.subplots(figsize=(12, 6))
-
-    ax.scatter(
-        np.arange(len(divs)),
-        divs,
-        s=4,
-        alpha=0.5,
-        c="black",
-        edgecolors="none",
-        label="Per-position entropy",
-    )
-
-    valid = ~np.isnan(roll_means)
-    ax.plot(
-        np.arange(len(divs))[valid],
-        roll_means[valid],
-        color="#2ca25f",
-        lw=1.5,
-        label=f"Rolling mean (k={roll_k})",
-    )
-
-    ymax = float(max(divs)) * 1.05
-    for k in range(top_n):
-        ax.axvspan(
-            results[k]["fwd_pos"],
-            results[k]["fwd_pos"] + primer_len,
-            alpha=0.20,
-            color="#e34a33",
-        )
-        ax.axvspan(
-            results[k]["rev_pos"],
-            results[k]["rev_pos"] + primer_len,
-            alpha=0.20,
-            color="#e34a33",
-        )
-
-    from matplotlib.patches import Patch
-
-    handles, _ = ax.get_legend_handles_labels()
-    if top_n > 0:
-        handles.append(
-            Patch(facecolor="#e34a33", alpha=0.20, label=f"Top {top_n} primer sites")
-        )
-    if handles:
-        ax.legend(handles=handles, loc="upper right")
-
-    ax.set_title(f"Sequence diversity - {os.path.basename(aln_file)}")
-    ax.set_xlabel("Alignment position (bp)")
-    ax.set_ylabel("Shannon entropy")
-    ax.set_ylim(-0.05, ymax)
-
-    fig.tight_layout()
-    fig.savefig(out_plot, dpi=150)
-    plt.close(fig)
-
-    log.info("Wrote diversity plot to %s", out_plot)
+# Visualization routines live in primers_plot (imported above): plot_placeholder,
+# plot_diversity, plot_pair_heatmap.
 
 
 # ---------------------------------------------------------------------------
@@ -355,6 +303,11 @@ def parse_args():
     parser.add_argument("--min-allele-freq", type=float)
     parser.add_argument("--max-degeneracy", type=int)
     parser.add_argument("--max-primer-pairs", type=int)
+    parser.add_argument(
+        "--score-weight-fold",
+        type=float,
+        help="Degeneracy penalty weight in combined_score (0 = no fold term).",
+    )
     parser.add_argument("--log", required=True)
     return parser.parse_args()
 
@@ -362,10 +315,6 @@ def parse_args():
 def main():
     args = parse_args()
     started = perf_counter()
-
-    global np, plt
-    import matplotlib.pyplot as plt
-    import numpy as np
 
     aln_file = args.aln
     out_tsv = args.out_tsv
@@ -408,6 +357,13 @@ def main():
     if max_primer_pairs < 1:
         raise SystemExit("max_primer_pairs must be a positive integer")
 
+    # --- Scientific refinement settings -----------------------------------
+    div_cut_auto_min = cfg.get("div_cut_auto_min_candidates", None)
+    div_cut_auto_step = cfg.get("div_cut_auto_step", 0.05)
+    div_cut_auto_max = cfg.get("div_cut_auto_max", 3.0)
+    score_weight_fold = _param(args.score_weight_fold, cfg, "score_weight_fold") or 0.0
+    plot_pair_heatmap_top_n = cfg.get("plot_pair_heatmap_top_n", 0)
+
     log.info("Parameters:")
     for k, v in [
         ("aln_file", aln_file),
@@ -428,7 +384,7 @@ def main():
         msg = f"Need at least 2 sequences to estimate diversity; found {len(records)}."
         log.warning(msg)
         _write_empty_tsv(out_tsv)
-        _plot_placeholder(msg, aln_file, out_plot, log)
+        plot_placeholder(msg, aln_file, out_plot, log)
         return
 
     dna_matrix = np.array([list(sequence.lower()) for _, sequence in records])
@@ -456,7 +412,7 @@ def main():
             "Alignment (%d bp) < primer_len (%d bp). Empty TSV.", aln_len, primer_len
         )
         _write_empty_tsv(out_tsv)
-        _plot_diversity(
+        plot_diversity(
             divs, roll_means, roll_k, [], 0, primer_len, aln_file, out_plot, log
         )
         return
@@ -470,18 +426,46 @@ def main():
         )
 
     # --- 6. Filter candidates --------------------------------------------
-    candidates = [
-        k for k in kmers if k["divs"] <= div_cut and k["fold"] <= max_degeneracy
-    ]
+    # Starting cutoff. With adaptive relaxation (div_cut_auto_min_candidates
+    # set), the cutoff is progressively raised until enough candidates pass or
+    # div_cut_auto_max is reached. Otherwise the fixed div_cut is used.
+    effective_div_cut = div_cut
+    if div_cut_auto_min is not None:
+        while True:
+            candidates = [
+                k
+                for k in kmers
+                if k["divs"] <= effective_div_cut and k["fold"] <= max_degeneracy
+            ]
+            if (
+                len(candidates) >= div_cut_auto_min
+                or effective_div_cut >= div_cut_auto_max
+            ):
+                break
+            effective_div_cut += div_cut_auto_step
+        if effective_div_cut != div_cut:
+            log.info(
+                "Auto-relaxed div_cut %.2f -> %.2f (%d candidates pass, target %d)",
+                div_cut,
+                effective_div_cut,
+                len(candidates),
+                div_cut_auto_min,
+            )
+    else:
+        candidates = [
+            k
+            for k in kmers
+            if k["divs"] <= effective_div_cut and k["fold"] <= max_degeneracy
+        ]
 
     if not candidates:
         log.info(
             "No candidates pass div_cut=%.2f + max_degeneracy=%d. Empty TSV.",
-            div_cut,
+            effective_div_cut,
             max_degeneracy,
         )
         _write_empty_tsv(out_tsv)
-        _plot_diversity(
+        plot_diversity(
             divs, roll_means, roll_k, [], 0, primer_len, aln_file, out_plot, log
         )
         return
@@ -490,7 +474,12 @@ def main():
 
     # --- 7. Evaluate pairs ------------------------------------------------
     results = _evaluate_pairs(
-        candidates, amplicon_min_len, amplicon_max_len, GC_tol, max_primer_pairs
+        candidates,
+        amplicon_min_len,
+        amplicon_max_len,
+        GC_tol,
+        max_primer_pairs,
+        score_weight_fold=score_weight_fold,
     )
     if len(results) == max_primer_pairs:
         log.warning(
@@ -502,7 +491,7 @@ def main():
     if not results:
         log.info("No valid primer pairs found. Empty TSV.")
         _write_empty_tsv(out_tsv)
-        _plot_diversity(
+        plot_diversity(
             divs, roll_means, roll_k, [], 0, primer_len, aln_file, out_plot, log
         )
         return
@@ -511,8 +500,15 @@ def main():
     _write_tsv(results, out_tsv)
     log.info("Wrote %d primer pairs -> %s", len(results), out_tsv)
 
+    # --- 8b. Optional candidate-pair score heatmap ------------------------
+    if plot_pair_heatmap_top_n and len(results) >= 2:
+        heatmap_path = os.path.splitext(out_plot)[0] + "_heatmap.png"
+        plot_pair_heatmap(
+            results, min(plot_pair_heatmap_top_n, len(results)), heatmap_path, log
+        )
+
     # --- 9. Diversity plot ------------------------------------------------
-    _plot_diversity(
+    plot_diversity(
         divs,
         roll_means,
         roll_k,

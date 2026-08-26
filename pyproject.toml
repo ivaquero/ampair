@@ -31,33 +31,8 @@ packages = ["ampair"]
 config = "ampair/config"
 workflow = "ampair/workflow"
 Snakefile = "ampair/Snakefile"
-
-[tool.ty]
-# Workflow scripts and tools import sibling modules (e.g. config_schema.py,
-# _shared.py) as top-level imports, so their directories are extra paths.
-
-[tool.ty.src]
-include = [
-  "ampair",
-  "tools",
-  "workflow/scripts",
-]
-exclude = [
-  ".pixi",
-  ".snakemake",
-  "dist",
-  "results",
-]
-
-[tool.ty.environment]
-# Pixi environments are not discovered automatically (they set CONDA_PREFIX,
-# not VIRTUAL_ENV), so point ty at the default environment explicitly.
-python = ".pixi/envs/default"
-extra-paths = [
-  "workflow/scripts",
-  "tools",
-]
-python-version = "3.12"
+"README.md" = "ampair/README.md"
+"USAGE.md" = "ampair/USAGE.md"
 
 [tool.ruff]
 target-version = "py312"
@@ -93,3 +68,30 @@ case-sensitive = true
 combine-as-imports = true
 force-wrap-aliases = true
 order-by-type = true
+
+[tool.ty]
+# Workflow scripts and tools import sibling modules (e.g. config_schema.py,
+# _shared.py) as top-level imports, so their directories are extra paths.
+
+[tool.ty.src]
+include = [
+  "ampair",
+  "tools",
+  "workflow/scripts",
+]
+exclude = [
+  ".pixi",
+  ".snakemake",
+  "dist",
+  "results",
+]
+
+[tool.ty.environment]
+# Pixi environments are not discovered automatically (they set CONDA_PREFIX,
+# not VIRTUAL_ENV), so point ty at the default environment explicitly.
+python = ".pixi/envs/default"
+extra-paths = [
+  "workflow/scripts",
+  "tools",
+]
+python-version = "3.12"

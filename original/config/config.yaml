@@ -1,0 +1,64 @@
+# =============================================================================
+# genus-primer-pipeline — configuration file
+#
+# Edit this file before running the pipeline.
+# All other parameters are fixed in the workflow itself.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Required: target organism and genes
+# -----------------------------------------------------------------------------
+
+# Bacterial genus name, exactly as recognised by NCBI
+# Examples: Bacillus, Pseudomonas, Listeria, Streptomyces
+genus: Borrelia
+
+# One or more housekeeping gene names
+# Each gene is processed in parallel; if more than one is given,
+# a cross-gene comparison report is also produced.
+genes:
+  - recG
+
+# Optional: alternative names for a gene, searched in addition to the gene name.
+# Useful when annotation varies across genomes.
+#   gene_aliases:
+#     tuf:
+#       - tsf
+#     16S:
+#       - "16S ribosomal RNA"
+
+# -----------------------------------------------------------------------------
+# Genome download
+# -----------------------------------------------------------------------------
+
+# ncbi-genome-download assembly level filter
+# Options: complete, chromosome, scaffold, contig
+# "complete" is recommended for reliable gene extraction
+assembly_level: complete
+
+# -----------------------------------------------------------------------------
+# Primer design parameters
+# -----------------------------------------------------------------------------
+
+# Primer length in bp
+primer_len: 20
+
+# Amplicon size range (bp) — distance between forward and reverse primer start positions
+amplicon_min_len: 300
+amplicon_max_len: 1000
+
+# Shannon entropy cutoff for a primer window to be considered conserved
+# Lower = more stringent. If no primers are found, raise this value.
+div_cut: 2.0
+
+# Maximum allowed GC% difference between the two primers in a pair
+GC_tol: 0.1
+
+# -----------------------------------------------------------------------------
+# In silico PCR validation
+# -----------------------------------------------------------------------------
+
+# Number of mismatches allowed when matching primers against genomes
+# (seqkit amplicon -m). 3 ≈ 15% tolerance for a 20 bp primer, a realistic
+# value for cross-species amplification. Lower = stricter, higher = more permissive.
+pcr_mismatch: 3

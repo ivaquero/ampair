@@ -50,9 +50,7 @@ def run_download(genus, assembly_level, fmt, out_dir):
         "--verbose",
     ]
     log.info("Running: %s", subprocess.list2cmdline(cmd))
-    result = subprocess.run(  # noqa: S603 - fixed downloader with shell=False.
-        cmd, capture_output=True, text=True
-    )
+    result = subprocess.run(cmd, capture_output=True, text=True)
     if result.stdout:
         log.info(result.stdout.rstrip())
     if result.stderr:
@@ -171,11 +169,7 @@ def main():
             {"label": label, "format": fmt, "output_dir": out_dir, **summary}
         )
     write_manifest(
-        args.manifest,
-        genus,
-        assembly_level,
-        manifest_rows,
-        config_sha256=config_sha256,
+        args.manifest, genus, assembly_level, manifest_rows, config_sha256=config_sha256
     )
 
     n_gen = manifest_rows[0]["n_fna"]
