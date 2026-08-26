@@ -3,6 +3,19 @@
 #
 # Edit this file before running the pipeline. Each gene is processed
 # independently and gets its own HTML report.
+#
+# NOTE (primer-diff comparison):
+# The values below are aligned with the first-version ("original") pipeline so
+# that the two code bases can be compared on the SAME inputs. The original
+# reference run used:
+#   genus: Borrelia
+#   genes: [recG]
+#   pcr_top_n -> the original R design/validation path kept the top 50 pairs
+#               (pcr_top_n was not configurable there; 50 is used here to match)
+# Everything else (primer_len, amplicon range, div_cut, GC_tol, pcr_mismatch,
+# max_degeneracy) already matches the original defaults. The two extra keys
+# min_allele_freq / max_degeneracy are also present in the original design step,
+# so they are kept at the original-equivalent values.
 # =============================================================================
 
 # -----------------------------------------------------------------------------
@@ -11,11 +24,11 @@
 
 # Bacterial genus name, exactly as recognized by NCBI.
 # Examples: Bacillus, Pseudomonas, Listeria, Streptomyces
-genus: Bacillus
+genus: Borrelia
 
 # One or more housekeeping gene names.
 genes:
-  - tuf
+  - recG
 
 # Optional alternative names for each gene, searched in addition to the primary
 # gene name. Useful when annotations vary across genomes.
@@ -65,7 +78,9 @@ div_cut_per_gene: {}
 GC_tol: 0.1
 
 # Minimum allele frequency for a base to be included in the degenerate IUPAC
-# primer code. Lower values allow more degenerate positions.
+# primer code. Lower values allow more degenerate positions. 0.05 matches the
+# original (first-version) pipeline default; using 0.0 makes every minor base
+# degenerate and produces a very different (more degenerate) primer set.
 min_allele_freq: 0.05
 
 # Maximum allowed degeneracy fold per primer. A fold of 16 means, for example,
@@ -96,7 +111,9 @@ pcr_mismatch: 3
 
 # Number of QC-passed primer pairs to validate against full genomes. The report
 # recommends the best pair after this validation, not just the original top hit.
-pcr_top_n: 10
+# Set to 50 to match the original (first-version) pipeline, which validated the
+# top 50 candidates before recommending.
+pcr_top_n: 50
 
 # Upper bound for retained primer pairs after scoring. Keeping this bounded
 # prevents a permissive design from materializing an impractically large TSV.

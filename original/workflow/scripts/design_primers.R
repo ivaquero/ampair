@@ -57,7 +57,7 @@ div_cut          <- as.numeric(snakemake@params[["div_cut"]])
 GC_tol           <- as.numeric(snakemake@params[["GC_tol"]])
 
 # --- degeneracy controls -------------------------------------------------
-min_allele_freq  <- as.numeric(get_param("min_allele_freq", 0.05
+min_allele_freq  <- as.numeric(get_param("min_allele_freq", 0.05))
 max_degeneracy   <- as.numeric(get_param("max_degeneracy", 16))
 
 message("Parameters:")

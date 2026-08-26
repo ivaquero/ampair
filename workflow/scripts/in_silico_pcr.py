@@ -159,6 +159,20 @@ def parse_args():
     parser.add_argument("--gene", required=True)
     parser.add_argument("--config", help="Optional AmPair config.yaml")
     parser.add_argument("--mismatch", type=int)
+    parser.add_argument(
+        "--degenerate",
+        dest="degenerate",
+        action="store_true",
+        default=True,
+        help="Allow IUPAC degenerate bases in primer patterns (SeqKit --degenerate). Default on.",
+    )
+    parser.add_argument(
+        "--no-degenerate",
+        dest="degenerate",
+        action="store_false",
+        help="Disable SeqKit --degenerate so only literal ACGT bases match. "
+        "This reproduces the stricter first-version (original) matching semantics.",
+    )
     parser.add_argument("--amplicon-min-len", type=int)
     parser.add_argument("--amplicon-max-len", type=int)
     parser.add_argument("--top-n", type=int)
@@ -249,6 +263,7 @@ def _scan_genome_batch(task):
         pattern_file,
         pattern_map,
         mismatch,
+        degenerate,
         valid_lo,
         valid_hi,
         seqkit_threads,
@@ -279,15 +294,20 @@ def _scan_genome_batch(task):
             "locate",
             "--pattern-file",
             pattern_file,
-            #            "--max-mismatch",
-            #            str(mismatch),
-            "--degenerate",
             "--bed",
             "--threads",
             str(seqkit_threads),
             "--quiet",
-            str(merged_fasta),
         ]
+        # SeqKit `locate` rejects `--degenerate` and `--max-mismatch` together,
+        # so the two modes are mutually exclusive. The first-version ("original")
+        # pipeline used strict ACGT matching with mismatches (seqkit amplicon -m),
+        # while AmPair's default uses degenerate IUPAC matching without mismatches.
+        if degenerate:
+            command.append("--degenerate")
+        else:
+            command.extend(["--max-mismatch", str(mismatch)])
+        command.append(str(merged_fasta))
         completed = subprocess.run(command, capture_output=True, text=True, check=False)
     if completed.returncode != 0:
         details = (completed.stderr or completed.stdout).strip()
@@ -456,6 +476,7 @@ def main():
     log.info("Primers TSV : %s", args.primers_tsv)
     log.info("Genome dir  : %s", args.genome_dir)
     log.info("Mismatch    : %d", mismatch)
+    log.info("Degenerate  : %s", "on" if args.degenerate else "off")
     log.info("Top N       : %d", top_n)
     log.info("Workers     : %d", args.workers)
     log.info("Batch size  : %d", args.batch_size)
@@ -516,6 +537,7 @@ def main():
                 pattern_file,
                 pattern_map,
                 mismatch,
+                args.degenerate,
                 valid_lo,
                 valid_hi,
                 seqkit_threads,

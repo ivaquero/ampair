@@ -38,6 +38,8 @@ rule in_silico_pcr:
             --out-tsv {output.summary:q} \
             --gene {params.gene:q} \
             --config {params.config_file:q} \
+            --mismatch {config[pcr_mismatch]} \
+            --degenerate \
             --workers {threads} \
             --species-summary {output.species_summary:q} \
             --species-tsv {output.species:q} \
