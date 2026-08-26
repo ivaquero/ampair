@@ -164,7 +164,10 @@ def parse_args():
         dest="degenerate",
         action="store_true",
         default=True,
-        help="Allow IUPAC degenerate bases in primer patterns (SeqKit --degenerate). Default on.",
+        help=(
+            "Allow IUPAC degenerate bases in primer patterns"
+            " (SeqKit --degenerate). Default on."
+        ),
     )
     parser.add_argument(
         "--no-degenerate",
