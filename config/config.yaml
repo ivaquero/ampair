@@ -88,6 +88,33 @@ min_allele_freq: 0.05
 max_degeneracy: 16
 
 # -----------------------------------------------------------------------------
+# Scientific refinements
+#
+# All three are DISABLED by default so the pipeline behavior is unchanged.
+# Enable any of them independently to test the improvements.
+# -----------------------------------------------------------------------------
+
+# (1) Adaptive div_cut relaxation. When set to a positive integer N, the
+#     pipeline raises div_cut in steps of div_cut_auto_step (default 0.05) until
+#     at least N candidate kmers pass, or div_cut_auto_max (default 3.0) is
+#     reached. This prevents empty output on highly diverse genera. Leave as
+#     null to use the fixed div_cut.
+div_cut_auto_min_candidates: null
+# div_cut_auto_step: 0.05
+# div_cut_auto_max: 3.0
+
+# (2) Degeneracy penalty in the combined score. 0 keeps the score without a
+#     fold term. Set >0, e.g. 0.5, to de-rank high-fold (highly degenerate)
+#     primer pairs:
+#     score = 1 / (|pair_div| + 10*delta_gc^2 + w_fold*log2(total_fold) + 0.01)
+score_weight_fold: 0.0
+
+# (3) Candidate-pair score heatmap. 0 disables. Set e.g. 20 to write a Top-N
+#     pair combined_score heatmap next to the diversity plot, helping reviewers
+#     see how separable the best pairs are.
+plot_pair_heatmap_top_n: 0
+
+# -----------------------------------------------------------------------------
 # Primer quality filters
 # -----------------------------------------------------------------------------
 

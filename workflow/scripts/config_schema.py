@@ -32,6 +32,20 @@ DEFAULT_SETTINGS = {
     "max_homodimer_dg": -6.0,
     "max_heterodimer_dg": -6.0,
     "max_3end_dg": -8.0,
+    # Auto-relax div_cut until at least `div_cut_min_candidates` pass, then stop.
+    # Disabled by default (None) so behavior is backward-compatible with a fixed
+    # div_cut. Set to a number (e.g. 50) to enable adaptive relaxation of the
+    # diversity cutoff.
+    "div_cut_auto_min_candidates": None,
+    # Increment step and upper bound for the adaptive div_cut search.
+    "div_cut_auto_step": 0.05,
+    "div_cut_auto_max": 3.0,
+    # Degeneracy penalty weight in the combined score. 0 (default) keeps the
+    # score without a fold term; >0 penalizes high-fold primer pairs so that
+    # conserved (low-degeneracy) designs rank higher.
+    "score_weight_fold": 0.0,
+    # Draw a Top-N candidate-pair score heatmap alongside the diversity plot.
+    "plot_pair_heatmap_top_n": 0,
 }
 
 
@@ -133,6 +147,29 @@ def validate_config(cfg):
     pcr_top_n = cfg.get("pcr_top_n", 10)
     if not _is_int(pcr_top_n) or pcr_top_n < 1:
         errors.append("pcr_top_n must be a positive integer")
+
+    # --- Scientific refinement settings ------------------------------------
+    div_cut_auto_min = cfg.get("div_cut_auto_min_candidates", None)
+    if div_cut_auto_min is not None and (
+        not _is_int(div_cut_auto_min) or div_cut_auto_min < 1
+    ):
+        errors.append("div_cut_auto_min_candidates must be a positive integer or null")
+
+    div_cut_auto_step = cfg.get("div_cut_auto_step", 0.05)
+    if not _is_number(div_cut_auto_step) or div_cut_auto_step <= 0:
+        errors.append("div_cut_auto_step must be a positive number")
+
+    div_cut_auto_max = cfg.get("div_cut_auto_max", 3.0)
+    if not _is_number(div_cut_auto_max) or div_cut_auto_max < 0:
+        errors.append("div_cut_auto_max must be a non-negative number")
+
+    score_weight_fold = cfg.get("score_weight_fold", 0.0)
+    if not _is_number(score_weight_fold) or score_weight_fold < 0:
+        errors.append("score_weight_fold must be a non-negative number")
+
+    plot_pair_heatmap_top_n = cfg.get("plot_pair_heatmap_top_n", 0)
+    if not _is_int(plot_pair_heatmap_top_n) or plot_pair_heatmap_top_n < 0:
+        errors.append("plot_pair_heatmap_top_n must be a non-negative integer")
 
     aliases = cfg.get("gene_aliases", {})
     if not isinstance(aliases, dict):

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # =============================================================================
-# compare_design.py
+# design_compare.py
 #
 # Offline comparison of primer-design outputs between the current AmPair
 # pipeline (workflow/scripts/primers_design.py) and the first-version
@@ -12,7 +12,7 @@
 # The script is dependency-free (standard library only) so it runs anywhere.
 #
 # Usage:
-#   python compare_design.py \
+#   python design_compare.py \
 #       --current  results/Borrelia/primers/recG_primers.tsv \
 #       --original original_run/recG_primers.tsv \
 #       [--top-n 50]
