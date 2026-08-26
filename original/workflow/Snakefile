@@ -1,0 +1,58 @@
+# ============================================================================
+# genus-primer-pipeline — main entry point (orchestrator)
+#
+# For a given bacterial genus and one or more housekeeping genes:
+#   download genomes -> extract gene -> dereplicate -> align ->
+#   design primers -> in silico PCR validation -> per-gene HTML report
+#
+# This Snakefile loads config, defines ALL shared path variables, and
+# includes the rule modules under workflow/rules/. Rule bodies live in their
+# own .smk files and rely on the variables defined here. The single conda
+# environment in workflow/envs/environment.yaml is activated before running;
+# no per-rule conda directives are used.
+#
+# Usage (from project root, with the conda env active):
+#   snakemake --cores 4
+# ============================================================================
+
+from pathlib import Path
+
+configfile: "config/config.yaml"
+
+wildcard_constraints:
+    gene = r"[^./]+"
+
+# ---------------------------------------------------------------------------
+# Shared variables — defined ONCE here, used by every included module
+# ---------------------------------------------------------------------------
+GENUS = config["genus"]
+GENES = config["genes"]
+
+# Per-genus result tree keeps multiple genus runs cleanly separated
+RESULTS = Path("results") / GENUS
+
+GENOMES_GENOMIC = RESULTS / "genomes" / "genomic"
+GENOMES_CDS     = RESULTS / "genomes" / "cds"
+GENOMES_RNA     = RESULTS / "genomes" / "rna"
+EXTRACTED       = RESULTS / "extracted"
+ALIGNED         = RESULTS / "aligned"
+PRIMERS         = RESULTS / "primers"
+REPORTS         = RESULTS / "reports"
+
+# ---------------------------------------------------------------------------
+# Include rule modules (paths relative to this Snakefile in workflow/)
+# ---------------------------------------------------------------------------
+include: "rules/download_genomes.smk"
+include: "rules/extract_gene.smk"
+include: "rules/cluster.smk"
+include: "rules/align.smk"
+include: "rules/design_primers.smk"
+include: "rules/in_silico_pcr.smk"
+include: "rules/reports.smk"
+
+# ---------------------------------------------------------------------------
+# Top-level target: one HTML report per gene
+# ---------------------------------------------------------------------------
+rule all:
+    input:
+        expand(str(REPORTS / "{gene}_report.html"), gene=GENES)

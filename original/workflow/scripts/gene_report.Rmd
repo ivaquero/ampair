@@ -1,0 +1,124 @@
+---
+title: "Primer design report"
+output:
+  html_document:
+    theme: flatly
+    toc: true
+    toc_float: true
+    df_print: paged
+params:
+  gene: "gene"
+  genus: "genus"
+  primers_tsv: ""
+  amplicons_tsv: ""
+  diversity_png: ""
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+library(knitr)
+
+gene  <- params$gene
+genus <- params$genus
+
+primers   <- read.delim(params$primers_tsv, stringsAsFactors = FALSE)
+amplicons <- read.delim(params$amplicons_tsv, stringsAsFactors = FALSE)
+
+has_primers   <- nrow(primers) > 0
+has_amplicons <- nrow(amplicons) > 0
+```
+
+# `r genus` — *`r gene`* primer design
+
+Generated `r format(Sys.time(), "%Y-%m-%d %H:%M")`
+
+---
+
+## In silico PCR validation
+
+```{r pcr_summary, results='asis'}
+if (!has_amplicons) {
+  cat("> **No primer pair was validated.** ",
+      "Either no primers passed the design filters, or the top pair ",
+      "amplified no genomes. See the candidate table below.\n")
+} else {
+  a <- amplicons[1, ]
+  cat(sprintf(
+    paste0(
+      "The top-ranked primer pair (**%s**) was tested against all downloaded ",
+      "*%s* genomes using `seqkit amplicon`:\n\n",
+      "| Metric | Value |\n|---|---|\n",
+      "| Forward primer | `%s` |\n",
+      "| Reverse primer | `%s` |\n",
+      "| Genomes amplified | %s / %s |\n",
+      "| Amplification rate | %.1f%% |\n",
+      "| Mean amplicon length | %.0f bp |\n"
+    ),
+    a$primer_id, genus,
+    a$fwd, a$rev,
+    a$n_genomes_amplified, a$total_genomes,
+    a$amplification_rate * 100,
+    a$mean_amplicon_len
+  ))
+}
+```
+
+---
+
+## Recommended primer pair
+
+```{r top_primer, results='asis'}
+if (!has_primers) {
+  cat("> No candidate primers were found. ",
+      "Try raising `div_cut` or relaxing `GC_tol` in `config.yaml`.\n")
+} else {
+  t <- primers[1, ]
+  cat(sprintf(
+    paste0(
+      "| Property | Forward | Reverse |\n|---|---|---|\n",
+      "| Sequence | `%s` | `%s` |\n",
+      "| Position | %s | %s |\n",
+      "| GC fraction | %.2f | %.2f |\n\n",
+      "**Amplicon length:** %s bp  \n",
+      "**Pair diversity (Shannon):** %.3f  \n",
+      "**GC difference:** %.3f  \n",
+      "**Combined score:** %.3f\n"
+    ),
+    t$fwd, t$rev,
+    t$fwd_pos, t$rev_pos,
+    t$fwd_GC, t$rev_GC,
+    t$amplicon_len,
+    t$pair_diversity,
+    t$delta_GC,
+    t$combined_score
+  ))
+}
+```
+
+---
+
+## Sequence diversity
+
+The plot shows per-position Shannon entropy across the alignment. Low-entropy
+(conserved) regions are good primer targets. Red rectangles mark the binding
+sites of the top-scoring primer pairs.
+
+```{r diversity_plot, results='asis'}
+if (file.exists(params$diversity_png)) {
+  cat(sprintf("![Diversity plot for %s](%s)\n", gene, params$diversity_png))
+} else {
+  cat("> Diversity plot not available.\n")
+}
+```
+
+---
+
+## All candidate primer pairs
+
+```{r all_primers}
+if (has_primers) {
+  primers
+} else {
+  cat("No candidates to display.")
+}
+```
