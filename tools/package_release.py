@@ -11,6 +11,7 @@ from _shared import ROOT
 DIST = ROOT / "dist"
 INCLUDE_PATHS = [
     "README.md",
+    "USAGE.md",
     "LICENSE",
     "Snakefile",
     "pyproject.toml",

@@ -3,12 +3,10 @@
 # primers_plot.py - visualization helpers for primer_design.py
 #
 # Contains the plotting/figure routines so the design logic stays free of
-# matplotlib concerns. matplotlib and numpy are imported lazily on first use;
-# callers must invoke ensure_matplotlib() before calling any plot function
-# (primer_design.main does this early).
+# matplotlib concerns. matplotlib is configured with a non-interactive Agg
+# backend so plots can be written to files in headless runs.
 #
 # Public API:
-#   ensure_matplotlib()      -> import plt/np (idempotent)
 #   plot_placeholder(...)    -> text-only figure when no candidates pass
 #   plot_diversity(...)      -> per-position entropy + rolling mean + Top-N sites
 #   plot_pair_heatmap(...)   -> Top-N candidate-pair combined_score heatmap
@@ -17,44 +15,26 @@
 from __future__ import annotations
 
 import os
-from typing import Any
 
-plt: Any = None
-np: Any = None
-
-
-def ensure_matplotlib():
-    """Import matplotlib/numpy lazily and configure a non-interactive backend.
-
-    Identical import strategy to primer_design.main so both modules share one
-    backend. Safe to call multiple times.
-    """
-    global plt, np
-    if plt is None:
-        import matplotlib.pyplot as _plt
-        import numpy as _np
-
-        plt = _plt
-        np = _np
+import matplotlib.pyplot as plt
+import numpy as np
 
 
 def plot_placeholder(message, aln_file, out_plot, log):
     os.makedirs(os.path.dirname(out_plot), exist_ok=True)
-    fig, ax = plt.subplots(figsize=(12, 6))
+    fig, ax = plt.subplots(figsize=(12, 6), constrained_layout=True)
     ax.text(0.5, 0.5, message, ha="center", va="center", wrap=True)
-    ax.set_axis_off()
-    ax.set_title(f"Sequence diversity - {os.path.basename(aln_file)}")
-    fig.tight_layout()
+    ax.set(axis_off=True, title=f"Sequence diversity - {os.path.basename(aln_file)}")
     fig.savefig(out_plot, dpi=150)
     plt.close(fig)
-    log.info("Wrote placeholder diversity plot to %s", out_plot)
+    log.info(f"Wrote placeholder diversity plot to {out_plot}")
 
 
 def plot_diversity(
     divs, roll_means, roll_k, results, top_n, primer_len, aln_file, out_plot, log
 ):
     os.makedirs(os.path.dirname(out_plot), exist_ok=True)
-    fig, ax = plt.subplots(figsize=(12, 6))
+    fig, ax = plt.subplots(figsize=(12, 6), constrained_layout=True)
 
     ax.scatter(
         np.arange(len(divs)),
@@ -100,16 +80,17 @@ def plot_diversity(
     if handles:
         ax.legend(handles=handles, loc="upper right")
 
-    ax.set_title(f"Sequence diversity - {os.path.basename(aln_file)}")
-    ax.set_xlabel("Alignment position (bp)")
-    ax.set_ylabel("Shannon entropy")
-    ax.set_ylim(-0.05, ymax)
+    ax.set(
+        title=f"Sequence diversity - {os.path.basename(aln_file)}",
+        xlabel="Alignment position (bp)",
+        ylabel="Shannon entropy",
+        ylim=(-0.05, ymax),
+    )
 
-    fig.tight_layout()
     fig.savefig(out_plot, dpi=150)
     plt.close(fig)
 
-    log.info("Wrote diversity plot to %s", out_plot)
+    log.info(f"Wrote diversity plot to {out_plot}")
 
 
 def plot_pair_heatmap(results, top_n, out_plot, log):
@@ -134,15 +115,20 @@ def plot_pair_heatmap(results, top_n, out_plot, log):
             ) / 2.0
 
     os.makedirs(os.path.dirname(out_plot), exist_ok=True)
-    fig, ax = plt.subplots(figsize=(max(6, n * 0.6), max(5, n * 0.6)))
+    fig, ax = plt.subplots(
+        figsize=(max(6, n * 0.6), max(5, n * 0.6)), constrained_layout=True
+    )
     im = ax.imshow(score_mat, aspect="auto", cmap="viridis")
-    ax.set_xticks(range(n))
-    ax.set_yticks(range(n))
-    ax.set_xticklabels(labels, rotation=90, fontsize=7)
-    ax.set_yticklabels(labels, fontsize=7)
-    ax.set_title("Top primer-pair combined_score heatmap")
+    ax.set(
+        xticks=range(n),
+        yticks=range(n),
+        xticklabels=labels,
+        yticklabels=labels,
+        title="Top primer-pair combined_score heatmap",
+    )
+    ax.tick_params(axis="x", labelrotation=90, labelsize=7)
+    ax.tick_params(axis="y", labelsize=7)
     fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label="combined_score")
-    fig.tight_layout()
     fig.savefig(out_plot, dpi=150)
     plt.close(fig)
-    log.info("Wrote pair-score heatmap (%d pairs) to %s", n, out_plot)
+    log.info(f"Wrote pair-score heatmap ({n} pairs) to {out_plot}")

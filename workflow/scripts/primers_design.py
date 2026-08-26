@@ -26,8 +26,8 @@ import logging
 import os
 from bisect import bisect_left, bisect_right
 from time import perf_counter
-from typing import Any
 
+import numpy as np
 from common import (
     config_param as _param,
     configure_logging,
@@ -36,18 +36,12 @@ from common import (
 )
 from config_schema import load_config_file
 from fasta_io import parse_fasta
-from primers_plot import (
-    ensure_matplotlib,
-    plot_diversity,
-    plot_pair_heatmap,
-    plot_placeholder,
-)
+from primers_plot import plot_diversity, plot_pair_heatmap, plot_placeholder
 
-# numpy/matplotlib are imported once, inside main(), and bound to these module
-# globals so the computation helpers below can use np without threading it
-# through every call. primers_plot keeps its own (lazy) copies for drawing.
-np: Any = None
-plt: Any = None
+# numpy is imported above for the column/entropy helpers. matplotlib is only
+# needed by primers_plot (imported above), which sets a non-interactive Agg
+# backend and is used for the final figures.
+
 
 _IUPAC_MAP = {
     "A": "A",
@@ -197,6 +191,10 @@ def _build_kmers(consensus, pos_code, pos_fold, divs, primer_len):
 
 
 def _pair_sort_key(row):
+    # Primary: combined_score descending (best first).
+    # Tiebreak: total_fold ascending so that, among equally scoring pairs, the
+    # LESS degenerate (smaller pool) design is preferred -- matching the
+    # original R pipeline's order(-combined_score, total_fold) behaviour.
     return (-row["combined_score"], row["total_fold"], row["fwd_pos"], row["rev_pos"])
 
 
@@ -284,8 +282,7 @@ def _write_empty_tsv(path):
 
 
 # Visualization routines live in primers_plot (imported above): plot_placeholder,
-# plot_diversity, plot_pair_heatmap. matplotlib/numpy are imported lazily there
-# via ensure_matplotlib(), which main calls before any plotting.
+# plot_diversity, plot_pair_heatmap.
 
 
 # ---------------------------------------------------------------------------
@@ -318,12 +315,6 @@ def parse_args():
 def main():
     args = parse_args()
     started = perf_counter()
-
-    global np, plt
-    import matplotlib.pyplot as plt
-    import numpy as np
-
-    ensure_matplotlib()  # initialises plt/np inside primers_plot for plotting
 
     aln_file = args.aln
     out_tsv = args.out_tsv
