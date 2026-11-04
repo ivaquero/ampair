@@ -412,6 +412,8 @@ def check_gene_report_cli():
         assert "Alignment" in html
         assert "Requested backend" in html
         assert "mafft" in html
+        assert "<style>" in html
+        assert 'href="report.css"' not in html
     print("gene report cli ok")
 
 
@@ -448,6 +450,8 @@ def check_gene_report_cross_cli():
         assert "AmPair cross-gene comparison" in html
         assert "recG" in html
         assert "100.0%" in html
+        assert "<style>" in html
+        assert 'href="report.css"' not in html
     print("cross-gene report cli ok")
 
 

@@ -18,7 +18,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from time import perf_counter
 
-from common import configure_logging, log_process_output
+from common import configure_logging, ensure_parent, log_process_output
 from dependencies import ensure_tool
 from fasta_io import count_fasta_records, parse_fasta
 
@@ -127,7 +127,7 @@ def main():
     if args.threads < 1:
         raise ValueError("--threads must be a positive integer")
     configure_logging(args.log)
-    os.makedirs(os.path.dirname(args.output), exist_ok=True)
+    ensure_parent(args.output)
 
     started = perf_counter()
     executable = ensure_tool("muscle")

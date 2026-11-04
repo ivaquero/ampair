@@ -21,6 +21,7 @@ from time import perf_counter
 from common import (
     config_param as _param,
     configure_logging,
+    ensure_parent,
     required_param as _required_param,
     reverse_complement,
 )
@@ -55,7 +56,7 @@ SPECIES_TABLE_COLS = [
 
 
 def write_summary(rows, out_tsv):
-    os.makedirs(os.path.dirname(out_tsv), exist_ok=True)
+    ensure_parent(out_tsv)
     with open(out_tsv, "w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=OUT_COLS, delimiter="\t")
         writer.writeheader()
@@ -127,7 +128,7 @@ def _write_species_outputs(summary_path, species_path, candidate, total_genomes)
         ),
     }
     if summary_path:
-        os.makedirs(os.path.dirname(summary_path), exist_ok=True)
+        ensure_parent(summary_path)
         with open(summary_path, "w", newline="", encoding="utf-8") as fh:
             writer = csv.DictWriter(fh, fieldnames=SPECIES_SUMMARY_COLS, delimiter="\t")
             writer.writeheader()
@@ -135,7 +136,7 @@ def _write_species_outputs(summary_path, species_path, candidate, total_genomes)
                 {"metric": key, "value": value} for key, value in metrics.items()
             )
     if species_path:
-        os.makedirs(os.path.dirname(species_path), exist_ok=True)
+        ensure_parent(species_path)
         with open(species_path, "w", newline="", encoding="utf-8") as fh:
             writer = csv.DictWriter(fh, fieldnames=SPECIES_TABLE_COLS, delimiter="\t")
             writer.writeheader()
@@ -273,6 +274,7 @@ def _scan_genome_batch(task):
     ) = task
     record_data = {}
     genome_data = {}
+    by_genome = {}
     with TemporaryDirectory(prefix="ampair-seqkit-batch-") as temp_dir:
         merged_fasta = Path(temp_dir) / "genomes.fna"
         with merged_fasta.open("w", encoding="utf-8") as merged:
@@ -286,6 +288,9 @@ def _scan_genome_batch(task):
                     record_id = f"g{genome_index}_r{record_index}"
                     sequence = sequence.upper()
                     record_data[record_id] = (genome_id, species, sequence)
+                    by_genome.setdefault(genome_id, []).append(
+                        (record_id, species, sequence)
+                    )
                     genome_bp += len(sequence)
                     genome_contigs += 1
                     genome_species.add(species)
@@ -354,9 +359,7 @@ def _scan_genome_batch(task):
     for genome_id, (genome_bp, genome_contigs, genome_species) in genome_data.items():
         per_candidate_hits = [[] for _ in range(n_candidates)]
         per_candidate_species = [{} for _ in range(n_candidates)]
-        for record_id, (record_genome, species, sequence) in record_data.items():
-            if record_genome != genome_id:
-                continue
+        for record_id, species, sequence in by_genome.get(genome_id, []):
             record_hits = hits.get(record_id, {})
             for candidate_index in range(n_candidates):
                 lengths = []

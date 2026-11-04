@@ -17,9 +17,13 @@
 import argparse
 import csv
 import logging
-import os
 
-from common import IUPAC_COMPLEMENT_TABLE, reverse_complement
+from common import (
+    IUPAC_COMPLEMENT_TABLE,
+    configure_logging,
+    ensure_parent,
+    reverse_complement,
+)
 from config_schema import load_config_file
 
 # ---------------------------------------------------------------------------
@@ -230,20 +234,47 @@ def calc_3end_dg(seq: str, n_bases: int = 5) -> float:
 
 
 # ---------------------------------------------------------------------------
+# Per-primer metric memoization
+# ---------------------------------------------------------------------------
+def _single_primer_metrics(seq: str, cache: dict) -> dict:
+    """Return hairpin/homodimer/3'-end dG for one primer, memoized by sequence.
+
+    Candidate pairs are drawn from a shared pool of kmers, so the same primer
+    sequence recurs across many pairs. These three metrics depend on a single
+    sequence (and hairpin is a cubic search), so caching them per sequence
+    avoids recomputing the same thermodynamics for every pair.
+    """
+    metrics = cache.get(seq)
+    if metrics is None:
+        metrics = {
+            "hairpin_dg": calc_hairpin_dg(seq),
+            "homodimer_dg": calc_homodimer_dg(seq),
+            "end3_dg": calc_3end_dg(seq),
+        }
+        cache[seq] = metrics
+    return metrics
+
+
+# ---------------------------------------------------------------------------
 # Quality-check a single primer pair
 # ---------------------------------------------------------------------------
-def check_pair(row: dict, thresholds: dict) -> dict:
+def check_pair(row: dict, thresholds: dict, cache=None) -> dict:
     fwd = row["fwd"]
     rev = row["rev"]
 
+    if cache is None:
+        cache = {}
+    fwd_m = _single_primer_metrics(fwd, cache)
+    rev_m = _single_primer_metrics(rev, cache)
+
     metrics = {
-        "hairpin_fwd_dg": calc_hairpin_dg(fwd),
-        "hairpin_rev_dg": calc_hairpin_dg(rev),
-        "homodimer_fwd_dg": calc_homodimer_dg(fwd),
-        "homodimer_rev_dg": calc_homodimer_dg(rev),
+        "hairpin_fwd_dg": fwd_m["hairpin_dg"],
+        "hairpin_rev_dg": rev_m["hairpin_dg"],
+        "homodimer_fwd_dg": fwd_m["homodimer_dg"],
+        "homodimer_rev_dg": rev_m["homodimer_dg"],
         "heterodimer_dg": calc_heterodimer_dg(fwd, rev),
-        "end3_fwd_dg": calc_3end_dg(fwd),
-        "end3_rev_dg": calc_3end_dg(rev),
+        "end3_fwd_dg": fwd_m["end3_dg"],
+        "end3_rev_dg": rev_m["end3_dg"],
     }
 
     # thresholds: more negative dG = stronger secondary structure = worse
@@ -302,13 +333,7 @@ def parse_args():
 def main():
     args = parse_args()
     log_path = args.log
-    os.makedirs(os.path.dirname(log_path), exist_ok=True)
-    logging.basicConfig(
-        filename=log_path,
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
+    configure_logging(log_path)
     log = logging.getLogger()
 
     in_tsv = args.in_tsv
@@ -345,7 +370,7 @@ def main():
 
     if not rows:
         log.warning("Input TSV is empty; writing empty output.")
-        os.makedirs(os.path.dirname(out_tsv), exist_ok=True)
+        ensure_parent(out_tsv)
         with open(out_tsv, "w", newline="") as fh:
             w = csv.writer(fh, delimiter="\t")
             # minimal header when there's no data
@@ -379,8 +404,9 @@ def main():
     out_fields = in_fields + qc_fields
 
     checked = []
+    primer_cache = {}
     for r in rows:
-        m = check_pair(r, thresholds)
+        m = check_pair(r, thresholds, cache=primer_cache)
         checked.append({**r, **m})
 
     passed = [r for r in checked if r["qc_pass"]]
@@ -393,13 +419,13 @@ def main():
         log.warning(
             "All %d pairs failed quality filters. Writing empty TSV.", len(checked)
         )
-        os.makedirs(os.path.dirname(out_tsv), exist_ok=True)
+        ensure_parent(out_tsv)
         with open(out_tsv, "w", newline="") as fh:
             w = csv.writer(fh, delimiter="\t")
             w.writerow(out_fields)
         return
 
-    os.makedirs(os.path.dirname(out_tsv), exist_ok=True)
+    ensure_parent(out_tsv)
     with open(out_tsv, "w", newline="") as fh:
         w = csv.DictWriter(
             fh, fieldnames=out_fields, delimiter="\t", extrasaction="ignore"

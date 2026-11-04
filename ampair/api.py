@@ -102,6 +102,19 @@ def _read_tsv(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(fh, delimiter="\t"))
 
 
+def _assert_self_contained(html: str, path: Path) -> None:
+    """Verify a report is a single self-contained HTML file.
+
+    Reports are documented as standalone files, so their stylesheet must be
+    inlined. A leftover relative ``report.css`` link leaves the delivered page
+    unstyled because the CSS is not copied next to the report.
+    """
+    if "<style>" not in html:
+        raise AssertionError(f"Report does not inline its stylesheet: {path}")
+    if 'href="report.css"' in html:
+        raise AssertionError(f"Report still links external report.css: {path}")
+
+
 def _safe_extract_tar_gz(archive: Path, destination: Path) -> None:
     destination = destination.resolve()
     with tarfile.open(archive, "r:gz") as tar:
@@ -407,6 +420,8 @@ class AmPairProject:
             raise AssertionError("Report is missing provenance fingerprints")
         if "Species-level validation" not in html:
             raise AssertionError("Report is missing species-level validation")
+        _assert_self_contained(html, paths.report_html)
+        _assert_self_contained(cross_report.read_text(encoding="utf-8"), cross_report)
         if expect_no_candidates:
             if primer_rows or pcr_rows:
                 raise AssertionError("Expected no primer/PCR rows for this dataset")

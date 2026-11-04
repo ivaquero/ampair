@@ -7,9 +7,14 @@ an HTML template, so those small utilities live here instead of being copied.
 from __future__ import annotations
 
 import csv
+import re
 from pathlib import Path
 
 _HTML_DIR = Path(__file__).resolve().parent
+
+# Matches the report templates' relative stylesheet link, e.g.
+# ``<link rel="stylesheet" type="text/css" href="report.css">``.
+_CSS_LINK = re.compile(r"<link[^>]*href=\"report\.css\"[^>]*>", re.IGNORECASE)
 
 
 def read_tsv(path) -> list[dict]:
@@ -21,6 +26,23 @@ def read_tsv(path) -> list[dict]:
 def load_template(name: str) -> str:
     """Return the raw contents of an HTML template in this directory."""
     return (_HTML_DIR / name).read_text(encoding="utf-8")
+
+
+def load_css(name: str = "report.css") -> str:
+    """Return the bundled stylesheet used by the HTML reports."""
+    return (_HTML_DIR / name).read_text(encoding="utf-8")
+
+
+def inline_css(html: str, css_text: str) -> str:
+    """Replace a relative ``report.css`` link with an inline ``<style>`` block.
+
+    Reports are written under ``results/{genus}/reports/`` where ``report.css``
+    is not copied, so a relative link leaves the delivered HTML unstyled.
+    Inlining keeps each report a single self-contained file.
+    """
+    style = f"<style>\n{css_text}\n</style>"
+    # A function replacement avoids re-interpreting backslashes in the CSS body.
+    return _CSS_LINK.sub(lambda _match: style, html)
 
 
 def render_page(template: str, **placeholders) -> str:
@@ -35,4 +57,10 @@ def render_page(template: str, **placeholders) -> str:
     return html
 
 
-__all__ = ["load_template", "read_tsv", "render_page"]
+__all__ = [
+    "inline_css",
+    "load_css",
+    "load_template",
+    "read_tsv",
+    "render_page",
+]

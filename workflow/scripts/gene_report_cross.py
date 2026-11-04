@@ -7,9 +7,10 @@ import argparse
 from html import escape
 from pathlib import Path
 
-from report_common import load_template, read_tsv, render_page
+from report_common import inline_css, load_css, load_template, read_tsv, render_page
 
 _HTML_TEMPLATE = load_template("gene_report_cross.html")
+_CSS = load_css()
 
 
 def _read_metrics(path: str) -> dict[str, str]:
@@ -61,7 +62,8 @@ def _build_html(summary_paths: list[str]) -> str:
         ("unique_amplicon_alleles", "Unique alleles"),
     ]
     header_html = "".join(f"<th>{escape(label)}</th>" for _, label in headers)
-    return render_page(_HTML_TEMPLATE, HEADER_HTML=header_html, BODY_ROWS=body_rows)
+    page = render_page(_HTML_TEMPLATE, HEADER_HTML=header_html, BODY_ROWS=body_rows)
+    return inline_css(page, _CSS)
 
 
 def main() -> None:

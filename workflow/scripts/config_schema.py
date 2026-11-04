@@ -28,6 +28,11 @@ DEFAULT_SETTINGS = {
     "max_degeneracy": 16,
     "max_primer_pairs": 100_000,
     "pcr_top_n": 10,
+    # Maximum ranked candidate pairs rendered into the per-gene HTML report's
+    # candidate table. The complete ranked list always remains in the primers
+    # TSV; this only bounds the in-HTML table so a large max_primer_pairs run
+    # does not produce an enormous page.
+    "report_top_n": 100,
     "max_hairpin_dg": 0.0,
     "max_homodimer_dg": -6.0,
     "max_heterodimer_dg": -6.0,
@@ -147,6 +152,10 @@ def validate_config(cfg):
     pcr_top_n = cfg.get("pcr_top_n", 10)
     if not _is_int(pcr_top_n) or pcr_top_n < 1:
         errors.append("pcr_top_n must be a positive integer")
+
+    report_top_n = cfg.get("report_top_n", 100)
+    if not _is_int(report_top_n) or report_top_n < 1:
+        errors.append("report_top_n must be a positive integer")
 
     # --- Scientific refinement settings ------------------------------------
     div_cut_auto_min = cfg.get("div_cut_auto_min_candidates", None)

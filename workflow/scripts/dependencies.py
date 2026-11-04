@@ -118,7 +118,6 @@ def _ensure_windows_tool(tool: str) -> str:
             f"{tool} is required on Windows, but Scoop was not found. "
             f"Install Scoop, then run 'scoop install {tool}'."
         )
-    assert scoop is not None
 
     log.info("%s not found; installing it with Scoop", tool)
     ensure_scoop_bucket(scoop)
@@ -136,7 +135,6 @@ def _ensure_windows_tool(tool: str) -> str:
             f"Scoop reported a successful {tool} installation, but {tool} was "
             "not found on PATH. Restart the shell and retry."
         )
-    assert executable is not None
     return _validate_tool(tool, executable, scoop)
 
 

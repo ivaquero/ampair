@@ -31,6 +31,7 @@ import numpy as np
 from common import (
     config_param as _param,
     configure_logging,
+    ensure_parent,
     required_param as _required_param,
     reverse_complement as _rev_comp,
 )
@@ -270,7 +271,7 @@ def _evaluate_pairs(
 # I/O helpers
 # ---------------------------------------------------------------------------
 def _write_tsv(rows, path):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
+    ensure_parent(path)
     with open(path, "w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=_TSV_FIELDNAMES, delimiter="\t")
         w.writeheader()

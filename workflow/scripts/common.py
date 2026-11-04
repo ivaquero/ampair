@@ -17,6 +17,7 @@ __all__ = [
     "IUPAC_COMPLEMENT_TABLE",
     "config_param",
     "configure_logging",
+    "ensure_parent",
     "fasta_directory_summary",
     "log_process_output",
     "required_param",
@@ -28,8 +29,17 @@ IUPAC_COMPLEMENT_TABLE = str.maketrans(
 )
 
 
+def ensure_parent(path: str | Path) -> None:
+    """Create the parent directory of ``path`` (no-op for bare filenames).
+
+    ``os.makedirs(os.path.dirname("out.tsv"))`` crashes on an empty dirname,
+    which happens when a script is invoked directly with a bare file name.
+    """
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+
+
 def configure_logging(log_path: str) -> None:
-    Path(log_path).parent.mkdir(parents=True, exist_ok=True)
+    ensure_parent(log_path)
     logging.basicConfig(
         filename=log_path,
         level=logging.INFO,

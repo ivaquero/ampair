@@ -145,3 +145,12 @@ pcr_top_n: 50
 # Upper bound for retained primer pairs after scoring. Keeping this bounded
 # prevents a permissive design from materializing an impractically large TSV.
 max_primer_pairs: 100000
+
+# -----------------------------------------------------------------------------
+# Report
+# -----------------------------------------------------------------------------
+
+# Maximum ranked candidate pairs rendered into the per-gene HTML report's
+# candidate table. The complete ranked list is always written to the primers
+# TSV; this only bounds the in-report table so a large run stays readable.
+report_top_n: 100

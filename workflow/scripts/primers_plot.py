@@ -18,10 +18,11 @@ import os
 
 import matplotlib.pyplot as plt
 import numpy as np
+from common import ensure_parent
 
 
 def plot_placeholder(message, aln_file, out_plot, log):
-    os.makedirs(os.path.dirname(out_plot), exist_ok=True)
+    ensure_parent(out_plot)
     fig, ax = plt.subplots(figsize=(12, 6), constrained_layout=True)
     ax.text(0.5, 0.5, message, ha="center", va="center", wrap=True)
     ax.set(axis_off=True, title=f"Sequence diversity - {os.path.basename(aln_file)}")
@@ -33,7 +34,7 @@ def plot_placeholder(message, aln_file, out_plot, log):
 def plot_diversity(
     divs, roll_means, roll_k, results, top_n, primer_len, aln_file, out_plot, log
 ):
-    os.makedirs(os.path.dirname(out_plot), exist_ok=True)
+    ensure_parent(out_plot)
     fig, ax = plt.subplots(figsize=(12, 6), constrained_layout=True)
 
     ax.scatter(
@@ -114,7 +115,7 @@ def plot_pair_heatmap(results, top_n, out_plot, log):
                 top[a]["combined_score"] + top[b]["combined_score"]
             ) / 2.0
 
-    os.makedirs(os.path.dirname(out_plot), exist_ok=True)
+    ensure_parent(out_plot)
     fig, ax = plt.subplots(
         figsize=(max(6, n * 0.6), max(5, n * 0.6)), constrained_layout=True
     )

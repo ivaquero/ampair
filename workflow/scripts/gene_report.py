@@ -13,14 +13,15 @@ import os
 from datetime import UTC, datetime
 from html import escape
 
-from common import sha256_file
+from common import ensure_parent, sha256_file
 from config_schema import load_config_file
-from report_common import load_template, read_tsv, render_page
+from report_common import inline_css, load_css, load_template, read_tsv, render_page
 
 # =============================================================================
 # HTML page shell - loaded from separate .html file
 # =============================================================================
 _PAGE = load_template("gene_report.html")
+_CSS = load_css()
 
 # =============================================================================
 # Markdown engine - tables turned on
@@ -83,6 +84,7 @@ def _build_body(
     manifest_sha256="",
     data_fingerprints=None,
     species_metrics=None,
+    display_top_n=100,
 ):
     """Build the report body as a Markdown string, using inline HTML only
     for styled elements (alerts, badges).  All control flow is plain Python."""
@@ -258,12 +260,20 @@ def _build_body(
     out.append("## All candidate primer pairs")
     out.append("")
     if primers:
-        keys = list(primers[0].keys())
+        cap = max(1, display_top_n)
+        display = primers[:cap]
+        keys = list(display[0].keys())
         out.append("| " + " | ".join(_md_cell(key) for key in keys) + " |")
         out.append("|" + "|".join(["---"] * len(keys)) + "|")
-        for row in primers:
+        for row in display:
             vals = [_md_cell(row.get(k, "")) for k in keys]
             out.append("| " + " | ".join(vals) + " |")
+        if len(primers) > len(display):
+            out.append("")
+            out.append(
+                f"*Showing the top {len(display)} of {len(primers)} ranked "
+                f"candidate pairs; the complete list is in the primers TSV.*"
+            )
     else:
         out.append('<div class="alert alert-info">No candidates to display.</div>')
     out.append("")
@@ -299,7 +309,7 @@ def main():
     import markdown
 
     log_path = args.log
-    os.makedirs(os.path.dirname(log_path), exist_ok=True)
+    ensure_parent(log_path)
     logging.basicConfig(
         filename=log_path,
         level=logging.INFO,
@@ -357,6 +367,7 @@ def main():
     )
 
     has_diversity = os.path.isfile(args.diversity_png)
+    display_top_n = int(cfg.get("report_top_n", 100))
 
     # -- build markdown body ------------------------------------------------
     body_md = _build_body(
@@ -372,16 +383,18 @@ def main():
         manifest_sha256=manifest_sha256,
         data_fingerprints=data_fingerprints,
         species_metrics=species_metrics,
+        display_top_n=display_top_n,
     )
 
     # -- markdown to HTML, then wrap in page shell --------------------------
     body_html = markdown.markdown(body_md, extensions=_MD_EXTENSIONS)
     title = f"{genus} - {gene} primer design"
     html = render_page(_PAGE, TITLE=escape(title), CONTENT=body_html)
+    html = inline_css(html, _CSS)
 
     # -- write --------------------------------------------------------------
     out_html = args.out_html
-    os.makedirs(os.path.dirname(out_html), exist_ok=True)
+    ensure_parent(out_html)
     with open(out_html, "w", encoding="utf-8") as fh:
         fh.write(html)
 
