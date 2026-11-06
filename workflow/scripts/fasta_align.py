@@ -25,6 +25,10 @@ from fasta_io import count_fasta_records, parse_fasta
 log = logging.getLogger(__name__)
 WARN_ALIGNMENT_SEQUENCE_COUNT = 500
 WARN_ALIGNMENT_BP = 2_000_000
+# Generous wall-clock guard for a single MUSCLE invocation. Legitimate
+# alignments finish within this; it converts a wedged child process into a
+# clean failure instead of an indefinite hang.
+ALIGN_TIMEOUT_SECONDS = 7_200
 
 
 def _backend_version(executable):
@@ -96,7 +100,21 @@ def run_muscle(executable, input_path, output_path, threads):
         if output_tmp.exists():
             output_tmp.unlink()
         log.info("Running MUSCLE: %s", " ".join(str(part) for part in command))
-        completed = subprocess.run(command, capture_output=True, text=True, check=False)
+        try:
+            completed = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=ALIGN_TIMEOUT_SECONDS,
+            )
+        except subprocess.TimeoutExpired:
+            log.info(
+                "MUSCLE attempt timed out after %d s: %s",
+                ALIGN_TIMEOUT_SECONDS,
+                " ".join(str(part) for part in command),
+            )
+            continue
         log_process_output(completed, log)
         if (
             completed.returncode == 0

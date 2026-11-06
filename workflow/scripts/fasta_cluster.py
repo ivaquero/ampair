@@ -21,6 +21,10 @@ log = logging.getLogger(__name__)
 
 WARN_SEQUENCE_COUNT = 1000
 WARN_CENTROID_COUNT = 500
+# Generous wall-clock guard for a single VSEARCH invocation. Normal clustering
+# finishes well within this; it exists to convert a wedged child process into a
+# clear failure rather than an indefinite hang.
+CLUSTER_TIMEOUT_SECONDS = 7_200
 
 
 def cluster_with_vsearch(executable, input_path, output_path, identity, threads):
@@ -38,7 +42,18 @@ def cluster_with_vsearch(executable, input_path, output_path, identity, threads)
         str(threads),
     ]
     log.info("Running VSEARCH: %s", " ".join(command))
-    completed = subprocess.run(command, capture_output=True, text=True, check=False)
+    try:
+        completed = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=CLUSTER_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(
+            f"VSEARCH clustering timed out after {CLUSTER_TIMEOUT_SECONDS} s"
+        ) from exc
     log_process_output(completed, log)
     if completed.returncode != 0:
         raise RuntimeError(

@@ -23,6 +23,7 @@ from __future__ import annotations
 import argparse
 import csv
 import logging
+import math
 import os
 from bisect import bisect_left, bisect_right
 from time import perf_counter
@@ -97,6 +98,13 @@ def _shannon(col) -> float:
 
     Gaps and unknown bases are missing observations, not additional bases in
     the distribution.
+
+    This is the canonical, readable definition of the entropy formula and is
+    the one exercised by the developer smoke test (tools/smoke_project.py).
+    The production path in ``_compute_column_stats`` inlines the identical
+    computation because it already has the per-column ``unique``/``counts``
+    from the consensus pass and avoids re-running ``np.unique`` per column.
+    Keep the two in sync when the formula changes.
     """
     observed = col[np.isin(col, ["a", "c", "g", "t"])]
     if len(observed) == 0:
@@ -139,7 +147,9 @@ def _compute_column_stats(dna_matrix: np.ndarray, n_seqs: int, min_allele_freq: 
         # consensus: most frequent base, gaps/Ns included.
         consensus[i] = unique[np.argmax(counts)]
 
-        # entropy: observed A/C/G/T only.
+        # entropy: observed A/C/G/T only. Same formula as _shannon (the tested
+        # reference definition), inlined here to reuse the unique/counts from
+        # the consensus pass instead of re-running np.unique per column.
         is_acgt = np.isin(unique, ["a", "c", "g", "t"])
         acgt_counts = counts[is_acgt]
         if acgt_counts.size:
@@ -183,7 +193,11 @@ def _build_kmers(consensus, pos_code, pos_fold, divs, primer_len):
                 "pos": j,
                 "degen": "".join(pos_code[idx]),
                 "n_degen": int(np.sum(pos_fold[idx] > 1)),
-                "fold": int(np.prod(pos_fold[idx])),
+                # math.prod over Python ints avoids the int64 overflow of
+                # np.prod for long, highly degenerate windows (e.g. 4**33),
+                # which would otherwise wrap negative and bypass the
+                # fold <= max_degeneracy filter.
+                "fold": math.prod(pos_fold[idx].tolist()),
                 "divs": float(np.sum(divs[idx])),
                 "GC": gc_count / primer_len,
             }
@@ -272,7 +286,7 @@ def _evaluate_pairs(
 # ---------------------------------------------------------------------------
 def _write_tsv(rows, path):
     ensure_parent(path)
-    with open(path, "w", newline="") as fh:
+    with open(path, "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=_TSV_FIELDNAMES, delimiter="\t")
         w.writeheader()
         w.writerows(rows)

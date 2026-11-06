@@ -21,7 +21,7 @@ rule cluster:
     output:
         temp(str(EXTRACTED / "{gene}.centroids.fasta"))
     params:
-        identity = 0.97,
+        identity = config["cluster_identity"],
         script = str(SCRIPTS_DIR / "fasta_cluster.py")
     log:
         str(RESULTS / "logs" / "cluster" / "{gene}.log")

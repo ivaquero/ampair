@@ -364,14 +364,14 @@ def main():
     log.info("Thresholds: %s", {k: v for k, v in thresholds.items() if v is not None})
 
     # Read input
-    with open(in_tsv, newline="") as fh:
+    with open(in_tsv, newline="", encoding="utf-8") as fh:
         reader = csv.DictReader(fh, delimiter="\t")
         rows = list(reader)
 
     if not rows:
         log.warning("Input TSV is empty; writing empty output.")
         ensure_parent(out_tsv)
-        with open(out_tsv, "w", newline="") as fh:
+        with open(out_tsv, "w", newline="", encoding="utf-8") as fh:
             w = csv.writer(fh, delimiter="\t")
             # minimal header when there's no data
             if reader.fieldnames:
@@ -420,13 +420,13 @@ def main():
             "All %d pairs failed quality filters. Writing empty TSV.", len(checked)
         )
         ensure_parent(out_tsv)
-        with open(out_tsv, "w", newline="") as fh:
+        with open(out_tsv, "w", newline="", encoding="utf-8") as fh:
             w = csv.writer(fh, delimiter="\t")
             w.writerow(out_fields)
         return
 
     ensure_parent(out_tsv)
-    with open(out_tsv, "w", newline="") as fh:
+    with open(out_tsv, "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(
             fh, fieldnames=out_fields, delimiter="\t", extrasaction="ignore"
         )

@@ -88,6 +88,16 @@ min_allele_freq: 0.05
 max_degeneracy: 16
 
 # -----------------------------------------------------------------------------
+# Dereplication (VSEARCH)
+# -----------------------------------------------------------------------------
+
+# Fractional identity threshold for collapsing near-identical sequences into
+# centroids before alignment. 0.97 (97%) is the standard OTU-style cutoff.
+# cluster.smk now reads this value from the config instead of a hardcoded
+# literal, so this file stays the single source of truth.
+cluster_identity: 0.97
+
+# -----------------------------------------------------------------------------
 # Scientific refinements
 #
 # All three are DISABLED by default so the pipeline behavior is unchanged.
@@ -145,6 +155,12 @@ pcr_top_n: 50
 # Upper bound for retained primer pairs after scoring. Keeping this bounded
 # prevents a permissive design from materializing an impractically large TSV.
 max_primer_pairs: 100000
+
+# Amplicon length tolerance in bp. An in silico PCR hit is accepted when its
+# amplicon length falls within [amplicon_min_len - pcr_len_margin,
+# amplicon_max_len + pcr_len_margin]. Promoted from the previously hardcoded
+# 100 bp margin in in_silico_pcr.py; override per run with --len-margin.
+pcr_len_margin: 100
 
 # -----------------------------------------------------------------------------
 # Report

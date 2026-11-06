@@ -24,6 +24,11 @@ log = logging.getLogger(__name__)
 NCBI_ENTRYPOINT = (
     "import sys; from ncbi_genome_download import __main__ as n; sys.exit(n.main())"
 )
+# Generous per-format wall-clock guard. Downloading a whole genus is
+# network-bound and legitimately slow, so this only fires if a child process
+# wedges; it turns an infinite hang into a clear failure the workflow can act
+# on rather than a stalled Snakemake run.
+DOWNLOAD_TIMEOUT_SECONDS = 21_600
 
 
 def run_download(genus, assembly_level, fmt, out_dir):
@@ -50,7 +55,17 @@ def run_download(genus, assembly_level, fmt, out_dir):
         "--verbose",
     ]
     log.info("Running: %s", subprocess.list2cmdline(cmd))
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    try:
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=DOWNLOAD_TIMEOUT_SECONDS
+        )
+    except subprocess.TimeoutExpired:
+        log.error(
+            "ncbi-genome-download timed out after %d s (format %s)",
+            DOWNLOAD_TIMEOUT_SECONDS,
+            fmt,
+        )
+        return 1
     if result.stdout:
         log.info(result.stdout.rstrip())
     if result.stderr:
@@ -192,6 +207,20 @@ def main():
 
     if n_gen == 0:
         log.error("No genomic FASTA downloaded. Check genus name and assembly level.")
+        return 1
+    if n_cds == 0:
+        log.error(
+            "No CDS FASTA downloaded. Protein-coding target genes are extracted "
+            "from CDS files, so gene extraction would find nothing; check the "
+            "genus name, assembly level, and NCBI availability."
+        )
+        return 1
+    if n_rna == 0:
+        log.error(
+            "No RNA FASTA downloaded. rRNA target genes are extracted from RNA "
+            "files, so gene extraction would be incomplete; check the genus "
+            "name, assembly level, and NCBI availability."
+        )
         return 1
     return 0
 

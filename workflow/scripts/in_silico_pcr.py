@@ -33,6 +33,10 @@ log = logging.getLogger(__name__)
 WARN_GENOME_COUNT = 500
 WARN_TOTAL_GENOME_BP = 500_000_000
 DEFAULT_BATCH_SIZE = 64
+# Generous wall-clock guard for one SeqKit locate invocation over a batch of
+# genomes. Normal batches finish well within this; it turns a wedged child
+# process into a clear failure rather than hanging a worker forever.
+SEQKIT_TIMEOUT_SECONDS = 3_600
 OUT_COLS = [
     "validation_rank",
     "input_rank",
@@ -179,6 +183,14 @@ def parse_args():
     )
     parser.add_argument("--amplicon-min-len", type=int)
     parser.add_argument("--amplicon-max-len", type=int)
+    parser.add_argument(
+        "--len-margin",
+        type=int,
+        help=(
+            "Amplicon length tolerance in bp added to the min/max range "
+            "(default: pcr_len_margin from config, else 100)."
+        ),
+    )
     parser.add_argument("--top-n", type=int)
     parser.add_argument(
         "--workers",
@@ -316,7 +328,19 @@ def _scan_genome_batch(task):
         else:
             command.extend(["--max-mismatch", str(mismatch)])
         command.append(str(merged_fasta))
-        completed = subprocess.run(command, capture_output=True, text=True, check=False)
+        try:
+            completed = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=SEQKIT_TIMEOUT_SECONDS,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError(
+                f"SeqKit locate timed out after {SEQKIT_TIMEOUT_SECONDS} s "
+                f"for batch starting with {genomes[0]}"
+            ) from exc
     if completed.returncode != 0:
         details = (completed.stderr or completed.stdout).strip()
         raise RuntimeError(
@@ -474,16 +498,33 @@ def main():
     if args.batch_size < 1:
         raise SystemExit("batch-size must be a positive integer")
 
-    len_margin = 100
+    len_margin = _param(args.len_margin, cfg, "pcr_len_margin")
+    if len_margin is None:
+        len_margin = 100
+    if len_margin < 0:
+        raise SystemExit("pcr_len_margin must be a non-negative integer")
+
     valid_lo = max(0, amplicon_min_len - len_margin)
     valid_hi = amplicon_max_len + len_margin
 
     log.info("Gene        : %s", args.gene)
     log.info("Primers TSV : %s", args.primers_tsv)
     log.info("Genome dir  : %s", args.genome_dir)
-    log.info("Mismatch    : %d", mismatch)
+    if args.degenerate:
+        log.info(
+            "Mismatch    : %d (ignored - degenerate matching does not use mismatches)",
+            mismatch,
+        )
+    else:
+        log.info("Mismatch    : %d", mismatch)
     log.info("Degenerate  : %s", "on" if args.degenerate else "off")
     log.info("Top N       : %d", top_n)
+    log.info(
+        "Len margin  : %d bp (accepted range %d-%d)",
+        len_margin,
+        valid_lo,
+        valid_hi,
+    )
     log.info("Workers     : %d", args.workers)
     log.info("Batch size  : %d", args.batch_size)
 

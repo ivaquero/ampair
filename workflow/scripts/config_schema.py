@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Configuration validation shared by the Snakefile and developer checks."""
 
+import math
+import warnings
+
 REQUIRED_SETTINGS = [
     "genus",
     "genes",
@@ -14,12 +17,28 @@ REQUIRED_SETTINGS = [
 ]
 
 ALLOWED_ASSEMBLY_LEVELS = {"complete", "chromosome", "scaffold", "contig"}
-QC_THRESHOLD_SETTINGS = [
-    "max_hairpin_dg",
-    "max_homodimer_dg",
-    "max_heterodimer_dg",
-    "max_3end_dg",
+# Single source of truth for the primer quality-check knobs. Each entry is
+# (config key, default threshold kcal/mol, primers_check metric columns gated by
+# that threshold). config_schema validation, config.yaml, and primers_check
+# (argparse flags, threshold dict, per-column checks, output columns) all derive
+# from this table so adding or renaming a dG filter is a one-line change here.
+QC_THRESHOLD_SPECS = [
+    ("max_hairpin_dg", 0.0, ("hairpin_fwd_dg", "hairpin_rev_dg")),
+    ("max_homodimer_dg", -6.0, ("homodimer_fwd_dg", "homodimer_rev_dg")),
+    ("max_heterodimer_dg", -6.0, ("heterodimer_dg",)),
+    ("max_3end_dg", -8.0, ("end3_fwd_dg", "end3_rev_dg")),
 ]
+QC_THRESHOLD_SETTINGS = [key for key, _default, _cols in QC_THRESHOLD_SPECS]
+# Metric column -> owning threshold key, derived from the specs above and used
+# by primers_check to gate each computed dG against its configured limit.
+QC_METRIC_TO_THRESHOLD = {
+    col: key for key, _default, cols in QC_THRESHOLD_SPECS for col in cols
+}
+# Plausible magnitude range (kcal/mol) for the nearest-neighbour dG thresholds.
+# Real primer secondary-structure dG values stay well inside this window, and
+# the documented "-99 to disable filtering" convention is preserved; anything
+# outside it is treated as a typo.
+QC_DG_BOUNDS = (-100.0, 100.0)
 
 DEFAULT_SETTINGS = {
     "gene_aliases": {},
@@ -27,7 +46,19 @@ DEFAULT_SETTINGS = {
     "min_allele_freq": 0.05,
     "max_degeneracy": 16,
     "max_primer_pairs": 100_000,
-    "pcr_top_n": 10,
+    # VSEARCH dereplication identity threshold for the cluster step. Sourced
+    # here so config.yaml is the single source of truth (cluster.smk reads it
+    # from the validated config instead of a hardcoded literal).
+    "cluster_identity": 0.97,
+    # Number of QC-passed primer pairs to validate against full genomes. The
+    # default matches the shipped config.yaml reference value so a config that
+    # omits this key behaves identically to the shipped one (the first-version
+    # pipeline validated the top 50 candidates before recommending).
+    "pcr_top_n": 50,
+    # Amplicon length tolerance (bp) added to amplicon_min_len/amplicon_max_len
+    # when accepting a SeqKit in silico PCR hit. Promoted from the previously
+    # hardcoded ``len_margin = 100`` in in_silico_pcr.py.
+    "pcr_len_margin": 100,
     # Maximum ranked candidate pairs rendered into the per-gene HTML report's
     # candidate table. The complete ranked list always remains in the primers
     # TSV; this only bounds the in-HTML table so a large max_primer_pairs run
@@ -59,7 +90,11 @@ def _is_int(value):
 
 
 def _is_number(value):
-    return isinstance(value, (int, float)) and not isinstance(value, bool)
+    return (
+        isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and math.isfinite(value)
+    )
 
 
 def apply_config_defaults(cfg):
@@ -107,6 +142,18 @@ def validate_config(cfg):
                 errors.append("each item in genes must be a non-empty string")
             elif "/" in gene or "\\" in gene or "." in gene:
                 errors.append(f"gene names cannot contain '/', '\\', or '.': {gene}")
+        # Duplicated genes expand to the same Snakemake output twice, which
+        # surfaces later as a cryptic "duplicate output file" error.
+        seen = set()
+        duplicates = set()
+        for gene in genes:
+            if isinstance(gene, str) and gene in seen:
+                duplicates.add(gene)
+            seen.add(gene)
+        if duplicates:
+            errors.append(
+                "genes must not contain duplicates: " + ", ".join(sorted(duplicates))
+            )
 
     if cfg.get("assembly_level") not in ALLOWED_ASSEMBLY_LEVELS:
         errors.append(
@@ -149,9 +196,17 @@ def validate_config(cfg):
     if not _is_int(cfg.get("pcr_mismatch")) or cfg.get("pcr_mismatch") < 0:
         errors.append("pcr_mismatch must be a non-negative integer")
 
-    pcr_top_n = cfg.get("pcr_top_n", 10)
+    pcr_top_n = cfg.get("pcr_top_n", 50)
     if not _is_int(pcr_top_n) or pcr_top_n < 1:
         errors.append("pcr_top_n must be a positive integer")
+
+    cluster_identity = cfg.get("cluster_identity", 0.97)
+    if not _is_number(cluster_identity) or not 0 < cluster_identity <= 1:
+        errors.append("cluster_identity must be a number greater than 0 and at most 1")
+
+    pcr_len_margin = cfg.get("pcr_len_margin", 100)
+    if not _is_int(pcr_len_margin) or pcr_len_margin < 0:
+        errors.append("pcr_len_margin must be a non-negative integer")
 
     report_top_n = cfg.get("report_top_n", 100)
     if not _is_int(report_top_n) or report_top_n < 1:
@@ -204,11 +259,27 @@ def validate_config(cfg):
 
     errors.extend(
         [
-            f"{key} must be a number or null"
+            f"{key} must be a finite number within {QC_DG_BOUNDS} kcal/mol or null"
             for key in QC_THRESHOLD_SETTINGS
-            if key in cfg and cfg[key] is not None and not _is_number(cfg[key])
+            if key in cfg
+            and cfg[key] is not None
+            and (
+                not _is_number(cfg[key])
+                or not QC_DG_BOUNDS[0] <= cfg[key] <= QC_DG_BOUNDS[1]
+            )
         ]
     )
+
+    # Non-fatal: flag keys that are neither required nor known defaults so
+    # typos and stray settings surface early, while still allowing forward-
+    # compatible extras added in future versions.
+    known_keys = set(REQUIRED_SETTINGS) | set(DEFAULT_SETTINGS)
+    unknown_keys = sorted(set(cfg) - known_keys)
+    if unknown_keys:
+        warnings.warn(
+            "config contains unrecognized key(s): " + ", ".join(unknown_keys),
+            stacklevel=2,
+        )
 
     if errors:
         raise ValueError("Invalid config/config.yaml:\n- " + "\n- ".join(errors))
