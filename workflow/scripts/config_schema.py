@@ -64,10 +64,6 @@ DEFAULT_SETTINGS = {
     # TSV; this only bounds the in-HTML table so a large max_primer_pairs run
     # does not produce an enormous page.
     "report_top_n": 100,
-    "max_hairpin_dg": 0.0,
-    "max_homodimer_dg": -6.0,
-    "max_heterodimer_dg": -6.0,
-    "max_3end_dg": -8.0,
     # Auto-relax div_cut until at least `div_cut_min_candidates` pass, then stop.
     # Disabled by default (None) so behavior is backward-compatible with a fixed
     # div_cut. Set to a number (e.g. 50) to enable adaptive relaxation of the
@@ -83,6 +79,8 @@ DEFAULT_SETTINGS = {
     # Draw a Top-N candidate-pair score heatmap alongside the diversity plot.
     "plot_pair_heatmap_top_n": 0,
 }
+# QC dG threshold defaults are sourced from the single QC_THRESHOLD_SPECS table.
+DEFAULT_SETTINGS.update({key: default for key, default, _cols in QC_THRESHOLD_SPECS})
 
 
 def _is_int(value):

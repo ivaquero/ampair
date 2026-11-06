@@ -24,7 +24,18 @@ from common import (
     ensure_parent,
     reverse_complement,
 )
-from config_schema import load_config_file
+from config_schema import (
+    QC_METRIC_TO_THRESHOLD,
+    QC_THRESHOLD_SPECS,
+    load_config_file,
+)
+
+# Ordered per-gene output columns: every metric column named by the QC specs,
+# followed by the pass/fail bookkeeping columns. Derived so a new dG knob only
+# needs to be declared once in config_schema.QC_THRESHOLD_SPECS.
+QC_OUTPUT_FIELDS = [
+    col for _key, _default, cols in QC_THRESHOLD_SPECS for col in cols
+] + ["qc_pass", "qc_fail_reasons"]
 
 # ---------------------------------------------------------------------------
 # IUPAC ambiguity codes
@@ -277,21 +288,16 @@ def check_pair(row: dict, thresholds: dict, cache=None) -> dict:
         "end3_rev_dg": rev_m["end3_dg"],
     }
 
-    # thresholds: more negative dG = stronger secondary structure = worse
-    checks = [
-        ("hairpin_fwd_dg", thresholds.get("max_hairpin_dg")),
-        ("hairpin_rev_dg", thresholds.get("max_hairpin_dg")),
-        ("homodimer_fwd_dg", thresholds.get("max_homodimer_dg")),
-        ("homodimer_rev_dg", thresholds.get("max_homodimer_dg")),
-        ("heterodimer_dg", thresholds.get("max_heterodimer_dg")),
-        ("end3_fwd_dg", thresholds.get("max_3end_dg")),
-        ("end3_rev_dg", thresholds.get("max_3end_dg")),
+    # thresholds: more negative dG = stronger secondary structure = worse.
+    # Each metric column is gated by the threshold key it maps to in the
+    # single-source QC specs table; iteration order matches the specs, keeping
+    # qc_fail_reasons deterministic.
+    fails = [
+        metric_key
+        for metric_key, threshold_key in QC_METRIC_TO_THRESHOLD.items()
+        if (limit := thresholds.get(threshold_key)) is not None
+        and metrics[metric_key] < limit
     ]
-
-    fails = []
-    for key, limit in checks:
-        if limit is not None and metrics[key] < limit:
-            fails.append(key)
 
     result: dict[str, float | bool | str] = dict(metrics)
     result["qc_pass"] = len(fails) == 0
@@ -314,18 +320,13 @@ def parse_args():
     parser.add_argument("--in-tsv", required=True)
     parser.add_argument("--out-tsv", required=True)
     parser.add_argument("--config", help="Optional AmPair config.yaml for thresholds")
-    parser.add_argument(
-        "--max-hairpin-dg", type=_nullable_float, default=argparse.SUPPRESS
-    )
-    parser.add_argument(
-        "--max-homodimer-dg", type=_nullable_float, default=argparse.SUPPRESS
-    )
-    parser.add_argument(
-        "--max-heterodimer-dg", type=_nullable_float, default=argparse.SUPPRESS
-    )
-    parser.add_argument(
-        "--max-3end-dg", type=_nullable_float, default=argparse.SUPPRESS
-    )
+    for key, _default, _cols in QC_THRESHOLD_SPECS:
+        parser.add_argument(
+            f"--{key.replace('_', '-')}",
+            dest=key,
+            type=_nullable_float,
+            default=argparse.SUPPRESS,
+        )
     parser.add_argument("--log", required=True)
     return parser.parse_args()
 
