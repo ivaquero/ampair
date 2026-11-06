@@ -98,6 +98,21 @@ max_degeneracy: 16
 cluster_identity: 0.97
 
 # -----------------------------------------------------------------------------
+# External backends
+# -----------------------------------------------------------------------------
+
+# Alignment and clustering tools selected by the pipeline. These are promoted
+# from the previously hardcoded MUSCLE / VSEARCH invocations; the values below
+# are the defaults, so leaving them unset (or keeping them as shown) behaves
+# exactly like earlier AmPair versions. Adding a new backend requires a runner
+# in fasta_align.py / fasta_cluster.py plus its name registered in
+# config_schema.SUPPORTED_ALIGNERS / SUPPORTED_CLUSTERERS.
+#   aligner:   muscle   (supported: muscle)
+#   clusterer: vsearch  (supported: vsearch)
+aligner: muscle
+clusterer: vsearch
+
+# -----------------------------------------------------------------------------
 # Scientific refinements
 #
 # All three are DISABLED by default so the pipeline behavior is unchanged.

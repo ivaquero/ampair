@@ -34,5 +34,6 @@ rule cluster:
             --output {output:q} \
             --identity {params.identity} \
             --threads {threads} \
+            --config {input.config:q} \
             --log {log:q}
         """

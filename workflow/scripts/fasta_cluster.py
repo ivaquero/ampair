@@ -14,6 +14,7 @@ import sys
 from time import perf_counter
 
 from common import configure_logging, ensure_parent, log_process_output
+from config_schema import load_config_file, resolve_clusterer
 from dependencies import ensure_tool
 from fasta_io import count_fasta_records, parse_fasta
 
@@ -61,12 +62,23 @@ def cluster_with_vsearch(executable, input_path, output_path, identity, threads)
         )
 
 
+# Dispatch table from a configured backend name to its runner. A runner takes
+# ``(executable, input_path, output_path, identity, threads)``. Only VSEARCH is
+# implemented today; adding a backend means registering one entry here plus
+# declaring its name in config_schema.SUPPORTED_CLUSTERERS, with no changes to
+# the surrounding flow.
+BACKEND_RUNNERS = {"vsearch": cluster_with_vsearch}
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Cluster FASTA records.")
     parser.add_argument("--input", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--identity", required=True, type=float)
     parser.add_argument("--threads", type=int, default=1)
+    parser.add_argument(
+        "--config", help="AmPair config.yaml; selects the clusterer backend"
+    )
     parser.add_argument("--log", required=True)
     return parser.parse_args()
 
@@ -81,7 +93,9 @@ def main():
     ensure_parent(args.output)
 
     started = perf_counter()
-    executable = ensure_tool("vsearch")
+    cfg = load_config_file(args.config) if args.config else {}
+    clusterer = resolve_clusterer(cfg)
+    executable = ensure_tool(clusterer)
     n_in = 0
     total_bp = 0
     for _, seq in parse_fasta(args.input):
@@ -95,11 +109,10 @@ def main():
     log.info("Input size: %d sequence(s), %d bp total", n_in, total_bp)
 
     if n_in > WARN_SEQUENCE_COUNT:
-        log.info("Large cluster input (%d sequences); using VSEARCH", n_in)
+        log.info("Large cluster input (%d sequences); using %s", n_in, clusterer)
 
-    cluster_with_vsearch(
-        executable, args.input, args.output, args.identity, args.threads
-    )
+    run_backend = BACKEND_RUNNERS[clusterer]
+    run_backend(executable, args.input, args.output, args.identity, args.threads)
     n_out = count_fasta_records(args.output)
 
     if n_out > WARN_CENTROID_COUNT:

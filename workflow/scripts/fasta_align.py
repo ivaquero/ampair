@@ -19,6 +19,7 @@ from pathlib import Path
 from time import perf_counter
 
 from common import configure_logging, ensure_parent, log_process_output
+from config_schema import load_config_file, resolve_aligner
 from dependencies import ensure_tool
 from fasta_io import count_fasta_records, parse_fasta
 
@@ -129,11 +130,21 @@ def run_muscle(executable, input_path, output_path, threads):
     return False, False
 
 
+# Dispatch table from a configured backend name to its runner. A runner takes
+# ``(executable, input_path, output_path, threads)`` and returns
+# ``(succeeded, fallback_used)``. Only MUSCLE is implemented today; adding a
+# backend means registering one entry here plus declaring its name in
+# config_schema.SUPPORTED_ALIGNERS, with no changes to the surrounding flow.
+BACKEND_RUNNERS = {"muscle": run_muscle}
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Align FASTA records with MUSCLE.")
     parser.add_argument("--input", required=True)
     parser.add_argument("--output", required=True)
-    parser.add_argument("--config", help="Accepted for workflow compatibility")
+    parser.add_argument(
+        "--config", help="AmPair config.yaml; selects the aligner backend"
+    )
     parser.add_argument("--threads", type=int, default=1)
     parser.add_argument("--metadata", help="Optional alignment metadata TSV")
     parser.add_argument("--log", required=True)
@@ -148,7 +159,9 @@ def main():
     ensure_parent(args.output)
 
     started = perf_counter()
-    executable = ensure_tool("muscle")
+    cfg = load_config_file(args.config) if args.config else {}
+    aligner = resolve_aligner(cfg)
+    executable = ensure_tool(aligner)
     n_in = 0
     total_bp = 0
     min_len = None
@@ -162,12 +175,12 @@ def main():
 
     if n_in < 2:
         shutil.copyfile(args.input, args.output)
-        log.info("Only %d sequence(s); skipped MUSCLE alignment", n_in)
+        log.info("Only %d sequence(s); skipped %s alignment", n_in, aligner)
         elapsed = perf_counter() - started
         write_alignment_metadata(
             args.metadata,
             {
-                "requested_backend": "muscle",
+                "requested_backend": aligner,
                 "backend_used": "skipped",
                 "fallback_used": False,
                 "backend_executable": executable,
@@ -188,21 +201,22 @@ def main():
         max_len,
     )
     if n_in > WARN_ALIGNMENT_SEQUENCE_COUNT or total_bp > WARN_ALIGNMENT_BP:
-        log.info("Large alignment input; using MUSCLE")
+        log.info("Large alignment input; using %s", aligner)
 
-    alignment_ok, fallback_used = run_muscle(
+    run_backend = BACKEND_RUNNERS[aligner]
+    alignment_ok, fallback_used = run_backend(
         executable, args.input, args.output, args.threads
     )
     if not alignment_ok:
-        raise SystemExit("MUSCLE alignment failed; see log for command output")
+        raise SystemExit(f"{aligner} alignment failed; see log for command output")
 
     n_out = count_fasta_records(args.output)
     elapsed = perf_counter() - started
     write_alignment_metadata(
         args.metadata,
         {
-            "requested_backend": "muscle",
-            "backend_used": "muscle",
+            "requested_backend": aligner,
+            "backend_used": aligner,
             "fallback_used": fallback_used,
             "backend_executable": executable,
             "backend_version": _backend_version(executable),
@@ -212,7 +226,7 @@ def main():
             "elapsed_seconds": round(elapsed, 3),
         },
     )
-    log.info("Aligned %d sequences with MUSCLE in %.2f s", n_out, elapsed)
+    log.info("Aligned %d sequences with %s in %.2f s", n_out, aligner, elapsed)
     return 0
 
 

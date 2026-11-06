@@ -17,6 +17,13 @@ REQUIRED_SETTINGS = [
 ]
 
 ALLOWED_ASSEMBLY_LEVELS = {"complete", "chromosome", "scaffold", "contig"}
+# External alignment/clustering backends that AmPair knows how to drive.  These
+# are the single source of truth for the config-selectable ``aligner`` and
+# ``clusterer`` knobs: config_schema validation, the per-step scripts, and
+# config.yaml all derive from here, so adding a backend is one line per set
+# plus a command builder in the corresponding script.
+SUPPORTED_ALIGNERS = frozenset({"muscle"})
+SUPPORTED_CLUSTERERS = frozenset({"vsearch"})
 # Single source of truth for the primer quality-check knobs. Each entry is
 # (config key, default threshold kcal/mol, primers_check metric columns gated by
 # that threshold). config_schema validation, config.yaml, and primers_check
@@ -78,9 +85,35 @@ DEFAULT_SETTINGS = {
     "score_weight_fold": 0.0,
     # Draw a Top-N candidate-pair score heatmap alongside the diversity plot.
     "plot_pair_heatmap_top_n": 0,
+    # External backends used by the align and cluster steps. Defaults match the
+    # tools previously hardcoded in fasta_align.py / fasta_cluster.py, so a
+    # config that omits these keys behaves identically to the shipped pipeline.
+    # Selectable values are declared once in SUPPORTED_ALIGNERS /
+    # SUPPORTED_CLUSTERERS above.
+    "aligner": "muscle",
+    "clusterer": "vsearch",
 }
 # QC dG threshold defaults are sourced from the single QC_THRESHOLD_SPECS table.
 DEFAULT_SETTINGS.update({key: default for key, default, _cols in QC_THRESHOLD_SPECS})
+
+
+def _resolve_backend(cfg, key, default, supported):
+    """Return the validated backend name for *key*, or raise a clear error."""
+    name = (cfg or {}).get(key, default)
+    if not isinstance(name, str) or name not in supported:
+        choices = ", ".join(sorted(supported))
+        raise ValueError(f"{key} must be one of: {choices} (got {name!r})")
+    return name
+
+
+def resolve_aligner(cfg):
+    """Return the validated alignment backend name selected by *cfg*."""
+    return _resolve_backend(cfg, "aligner", "muscle", SUPPORTED_ALIGNERS)
+
+
+def resolve_clusterer(cfg):
+    """Return the validated clustering backend name selected by *cfg*."""
+    return _resolve_backend(cfg, "clusterer", "vsearch", SUPPORTED_CLUSTERERS)
 
 
 def _is_int(value):
@@ -156,6 +189,18 @@ def validate_config(cfg):
     if cfg.get("assembly_level") not in ALLOWED_ASSEMBLY_LEVELS:
         errors.append(
             "assembly_level must be one of: complete, chromosome, scaffold, contig"
+        )
+
+    aligner = cfg.get("aligner", "muscle")
+    if not isinstance(aligner, str) or aligner not in SUPPORTED_ALIGNERS:
+        errors.append(
+            "aligner must be one of: " + ", ".join(sorted(SUPPORTED_ALIGNERS))
+        )
+
+    clusterer = cfg.get("clusterer", "vsearch")
+    if not isinstance(clusterer, str) or clusterer not in SUPPORTED_CLUSTERERS:
+        errors.append(
+            "clusterer must be one of: " + ", ".join(sorted(SUPPORTED_CLUSTERERS))
         )
 
     errors.extend(
