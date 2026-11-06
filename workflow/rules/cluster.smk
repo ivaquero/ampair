@@ -16,10 +16,10 @@ rule cluster:
     resources:
         mem_mb=4096
     input:
-        fasta = str(EXTRACTED / "{gene}.fasta"),
+        fasta = str(EXTRACTED / layout.extracted_fasta("{gene}")),
         config = CONFIG_FILE
     output:
-        temp(str(EXTRACTED / "{gene}.centroids.fasta"))
+        temp(str(EXTRACTED / layout.centroids("{gene}")))
     params:
         identity = config["cluster_identity"],
         script = str(SCRIPTS_DIR / "fasta_cluster.py")

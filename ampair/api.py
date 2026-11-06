@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import contextlib
 import csv
+import importlib.util
 import os
 import shutil
 import subprocess
@@ -19,7 +20,7 @@ from datetime import UTC, datetime
 from importlib import resources
 from pathlib import Path
 
-from .provenance import fasta_directory_summary, sha256_file
+from .provenance import fasta_directory_summary, git_revision, sha256_file
 
 DEFAULT_GENUS = "Borrelia"
 DEFAULT_GENE = "recG"
@@ -97,6 +98,33 @@ def _resource_path(*parts: str) -> Path:
     return Path(str(resources.files("ampair").joinpath(*parts)))
 
 
+_PIPELINE_LAYOUT_CACHE: dict[str, object] = {}
+
+
+def _load_pipeline_layout(scripts_dir: Path):
+    """Load the shared workflow layout module (single source of path truth).
+
+    ``workflow/Snakefile`` and the ``workflow/rules/*.smk`` modules read the
+    per-gene output layout and rule order from ``pipeline_layout.py``; the API
+    loads the very same file so the contract is defined once. It is loaded by
+    path (workflow scripts are not an importable package) and cached by resolved
+    location, which also covers the installed-package resource fallback.
+    """
+    layout_path = Path(scripts_dir) / "pipeline_layout.py"
+    key = str(layout_path.resolve())
+    module = _PIPELINE_LAYOUT_CACHE.get(key)
+    if module is None:
+        spec = importlib.util.spec_from_file_location(
+            "ampair_pipeline_layout", layout_path
+        )
+        if spec is None or spec.loader is None:
+            raise ModuleNotFoundError(f"Cannot load pipeline layout: {layout_path}")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        _PIPELINE_LAYOUT_CACHE[key] = module
+    return module
+
+
 def _read_tsv(path: Path) -> list[dict[str, str]]:
     with path.open(newline="", encoding="utf-8") as fh:
         return list(csv.DictReader(fh, delimiter="\t"))
@@ -154,6 +182,7 @@ def _write_local_manifest(genomes_dir: Path, genus: str, config: Path) -> None:
         )
 
     manifest = genomes_dir / "download_manifest.tsv"
+    rev = git_revision()
     fieldnames = [
         "generated_at",
         "genus",
@@ -165,6 +194,7 @@ def _write_local_manifest(genomes_dir: Path, genus: str, config: Path) -> None:
         "total_bytes",
         "data_fingerprint",
         "config_sha256",
+        "git_revision",
     ]
     with manifest.open("w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=fieldnames, delimiter="\t")
@@ -176,6 +206,7 @@ def _write_local_manifest(genomes_dir: Path, genus: str, config: Path) -> None:
                     "genus": genus,
                     "assembly_level": "local-archive",
                     "config_sha256": sha256_file(config),
+                    "git_revision": rev,
                     **row,
                 }
             )
@@ -234,17 +265,19 @@ class AmPairProject:
     ) -> ResultPaths:
         safe_genus = _safe_component(genus, "genus")
         safe_gene = _safe_component(gene, "gene")
+        layout = _load_pipeline_layout(self.workflow_scripts_dir())
         result_dir = self.result_dir(safe_genus)
+        reports = result_dir / layout.REPORTS
+        primers = result_dir / layout.PRIMERS
+        aligned = result_dir / layout.ALIGNED
         return ResultPaths(
-            report_html=result_dir / "reports" / f"{safe_gene}_report.html",
-            primers_tsv=result_dir / "primers" / f"{safe_gene}_primers.tsv",
-            amplicons_tsv=result_dir / "primers" / f"{safe_gene}_amplicons.tsv",
-            species_summary_tsv=(
-                result_dir / "primers" / f"{safe_gene}_species_summary.tsv"
-            ),
-            species_tsv=result_dir / "primers" / f"{safe_gene}_species.tsv",
-            diversity_png=result_dir / "primers" / f"{safe_gene}_diversity.png",
-            alignment_tsv=result_dir / "aligned" / f"{safe_gene}.alignment.tsv",
+            report_html=reports / layout.report_html(safe_gene),
+            primers_tsv=primers / layout.primers(safe_gene),
+            amplicons_tsv=primers / layout.amplicons(safe_gene),
+            species_summary_tsv=primers / layout.species_summary(safe_gene),
+            species_tsv=primers / layout.species(safe_gene),
+            diversity_png=primers / layout.diversity(safe_gene),
+            alignment_tsv=aligned / layout.alignment_meta(safe_gene),
         )
 
     @contextlib.contextmanager
@@ -403,7 +436,8 @@ class AmPairProject:
         if paths.diversity_png.stat().st_size <= 0:
             raise AssertionError(f"Empty diversity plot: {paths.diversity_png}")
 
-        cross_report = paths.report_html.parent / "gene_report_cross.html"
+        layout = _load_pipeline_layout(self.workflow_scripts_dir())
+        cross_report = paths.report_html.parent / layout.CROSS_REPORT
         if not cross_report.is_file():
             raise FileNotFoundError(f"Missing expected output: {cross_report}")
 
@@ -452,6 +486,7 @@ class AmPairProject:
             self.prepare_local_dataset(
                 archive=archive, genus=genus, config_path=config_path
             )
+            layout = _load_pipeline_layout(self.workflow_scripts_dir())
             report_target = self.result_paths(genus, gene).report_html
             self.run_pipeline(
                 target=report_target,
@@ -462,16 +497,10 @@ class AmPairProject:
                     "--rerun-triggers",
                     "mtime",
                     "--forcerun",
-                    "gene_extract",
-                    "cluster",
-                    "align",
-                    "primers_design",
-                    "primers_check",
-                    "in_silico_pcr",
-                    "gene_report",
+                    *layout.PER_GENE_RULES,
                 ],
             )
-            cross_target = self.result_dir(genus) / "reports" / "gene_report_cross.html"
+            cross_target = self.result_dir(genus) / layout.REPORTS / layout.CROSS_REPORT
             self.run_pipeline(
                 target=cross_target,
                 cores=cores,
@@ -481,7 +510,7 @@ class AmPairProject:
                     "--rerun-triggers",
                     "mtime",
                     "--forcerun",
-                    "gene_report_cross",
+                    *layout.CROSS_RULES,
                 ],
             )
             return self.verify_result_outputs(

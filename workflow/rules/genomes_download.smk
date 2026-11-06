@@ -27,7 +27,7 @@ rule genomes_download:
         genomic = directory(str(GENOMES_GENOMIC)),
         cds     = directory(str(GENOMES_CDS)),
         rna     = directory(str(GENOMES_RNA)),
-        manifest = str(RESULTS / "genomes" / "download_manifest.tsv")
+        manifest = str(RESULTS / layout.GENOMES / layout.DOWNLOAD_MANIFEST)
     params:
         config_file = CONFIG_FILE,
         script = str(SCRIPTS_DIR / "genomes_download.py")

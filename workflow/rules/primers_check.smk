@@ -15,10 +15,10 @@ rule primers_check:
     resources:
         mem_mb=2048
     input:
-        primer_tsv = str(PRIMERS / "{gene}_primers_raw.tsv"),
+        primer_tsv = str(PRIMERS / layout.primers_raw("{gene}")),
         config = CONFIG_FILE
     output:
-        str(PRIMERS / "{gene}_primers.tsv")
+        str(PRIMERS / layout.primers("{gene}"))
     params:
         config_file = CONFIG_FILE,
         script = str(SCRIPTS_DIR / "primers_check.py")

@@ -18,11 +18,11 @@ rule align:
     resources:
         mem_mb=4096
     input:
-        centroids = str(EXTRACTED / "{gene}.centroids.fasta"),
+        centroids = str(EXTRACTED / layout.centroids("{gene}")),
         config = CONFIG_FILE
     output:
-        aln = temp(str(ALIGNED / "{gene}.aln")),
-        metadata = str(ALIGNED / "{gene}.alignment.tsv")
+        aln = temp(str(ALIGNED / layout.aln("{gene}"))),
+        metadata = str(ALIGNED / layout.alignment_meta("{gene}"))
     params:
         config_file = CONFIG_FILE,
         script = str(SCRIPTS_DIR / "fasta_align.py")

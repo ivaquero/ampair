@@ -101,10 +101,10 @@ def _shannon(col) -> float:
 
     This is the canonical, readable definition of the entropy formula and is
     the one exercised by the developer smoke test (tools/smoke_project.py).
-    The production path in ``_compute_column_stats`` inlines the identical
-    computation because it already has the per-column ``unique``/``counts``
-    from the consensus pass and avoids re-running ``np.unique`` per column.
-    Keep the two in sync when the formula changes.
+    The production path in ``_compute_column_stats`` computes the identical
+    quantity in a single vectorised pass, while ``_reference_column_stats``
+    keeps the same per-column formula as the source of truth for exotic
+    columns. Keep all three in sync when the formula changes.
     """
     observed = col[np.isin(col, ["a", "c", "g", "t"])]
     if len(observed) == 0:
@@ -128,55 +128,128 @@ def _rollmean(values, k: int):
 # ---------------------------------------------------------------------------
 # Core computation
 # ---------------------------------------------------------------------------
+# The vectorised fast path below is provably identical to the reference loop
+# only for "simple" columns, i.e. columns whose sole characters come from
+# ``_SIMPLE_ALPHA``. Any column containing another character (uppercase bases,
+# IUPAC codes, unexpected letters) is routed through the exact original loop so
+# the subtle consensus/annotation fallbacks stay intact. Equivalence is locked
+# down by tests/test_column_stats_equivalence.py.
+_SIMPLE_ALPHA = np.array(["-", "a", "c", "g", "n", "t"], dtype="<U1")
+_ACGT_LETTERS = np.array(["a", "c", "g", "t"], dtype="<U1")
+_ACGT_ROWS = np.array([1, 2, 3, 5])  # a/c/g/t rows within ``_SIMPLE_ALPHA``
+_BIT_WEIGHTS = np.array([1, 2, 4, 8], dtype=np.int64)
+# IUPAC code and fold for each of the 16 subsets of {a,c,g,t} (bit j -> letter j).
+_SUBSET_CODES = np.array(
+    [
+        _iupac_encode("".join(_ACGT_LETTERS[b] for b in range(4) if mask >> b & 1))
+        for mask in range(16)
+    ],
+    dtype="<U1",
+)
+_SUBSET_FOLD = np.array([bin(m).count("1") for m in range(16)], dtype=int)
+
+
+def _reference_column_stats(dna_matrix, i, n_seqs, min_allele_freq):
+    """Original per-column body: (consensus, div, code, fold) for column ``i``.
+
+    Kept verbatim as the single source of truth for the exotic-column fallback
+    and as the equivalence reference in the fuzz test.
+    """
+    unique, counts = np.unique(dna_matrix[:, i], return_counts=True)
+
+    consensus = unique[np.argmax(counts)]
+
+    is_acgt = np.isin(unique, ["a", "c", "g", "t"])
+    acgt_counts = counts[is_acgt]
+    if acgt_counts.size:
+        probs = acgt_counts / acgt_counts.sum()
+        probs = probs[probs > 0]
+        div = float(-np.sum(probs * np.log(probs)))
+    else:
+        div = 0.0
+
+    mask = ~np.isin(unique, ["-", "n"])
+    bases = unique[mask]
+    base_counts = counts[mask]
+    if bases.size == 0:  # all-gap column
+        return consensus, div, "N", 1
+
+    freqs = base_counts / n_seqs
+    keep = bases[freqs >= min_allele_freq]
+    keep = np.array([b for b in keep if b.upper() in _VALID_BASES])
+
+    if keep.size == 0:  # nothing passes freq threshold
+        keep = np.array([bases[np.argmax(base_counts)]])
+
+    return consensus, div, _iupac_encode("".join(keep)), len(keep)
+
+
 def _compute_column_stats(dna_matrix: np.ndarray, n_seqs: int, min_allele_freq: float):
     """Return (consensus, divs, pos_code, pos_fold) in a single column pass.
 
     ``consensus`` is the most frequent base (gaps and Ns included), ``divs``
     is the Shannon entropy over observed A/C/G/T, and ``pos_code``/``pos_fold``
     are the IUPAC degeneracy code and fold for each column.
+
+    Simple columns are handled by one vectorised char-by-column pass; exotic
+    columns fall back to :func:`_reference_column_stats`. Both paths compute
+    the identical quantities, so the result is independent of which path a
+    column takes.
     """
     aln_len = dna_matrix.shape[1]
     consensus = np.empty(aln_len, dtype="<U1")
     divs = np.empty(aln_len, dtype=float)
     pos_code = np.empty(aln_len, dtype="<U1")
     pos_fold = np.ones(aln_len, dtype=int)
+    if aln_len == 0:
+        return consensus, divs, pos_code, pos_fold
 
-    for i in range(aln_len):
-        unique, counts = np.unique(dna_matrix[:, i], return_counts=True)
+    alpha = _SIMPLE_ALPHA
+    n_sym = alpha.size
+    pos = np.clip(np.searchsorted(alpha, dna_matrix), 0, n_sym - 1)
+    in_simple = alpha[pos] == dna_matrix  # (n_seqs, aln_len)
+    codes = np.where(in_simple, pos, -1)
 
-        # consensus: most frequent base, gaps/Ns included.
-        consensus[i] = unique[np.argmax(counts)]
+    # Symbol x column counts via a single flat bincount (row-major: p=r*L+c).
+    flat = codes.ravel()
+    col_flat = np.arange(flat.size) % aln_len
+    good = flat >= 0
+    lin = flat[good] * aln_len + col_flat[good]
+    counts = np.bincount(lin, minlength=n_sym * aln_len).reshape(n_sym, aln_len)
 
-        # entropy: observed A/C/G/T only. Same formula as _shannon (the tested
-        # reference definition), inlined here to reuse the unique/counts from
-        # the consensus pass instead of re-running np.unique per column.
-        is_acgt = np.isin(unique, ["a", "c", "g", "t"])
-        acgt_counts = counts[is_acgt]
-        if acgt_counts.size:
-            probs = acgt_counts / acgt_counts.sum()
-            probs = probs[probs > 0]
-            divs[i] = float(-np.sum(probs * np.log(probs)))
-        else:
-            divs[i] = 0.0
+    # consensus: most frequent symbol, ties broken by the sorted alpha order.
+    consensus[:] = alpha[np.argmax(counts, axis=0)]
 
-        # annotations: drop gaps and Ns, apply min_allele_freq threshold.
-        mask = ~np.isin(unique, ["-", "n"])
-        bases = unique[mask]
-        base_counts = counts[mask]
-        if bases.size == 0:  # all-gap column
-            pos_code[i] = "N"
-            pos_fold[i] = 1
-            continue
+    # entropy: observed lowercase a/c/g/t only (same order as np.unique).
+    acgt = counts[_ACGT_ROWS]  # (4, aln_len)
+    acgt_total = acgt.sum(axis=0)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        probs = np.where(acgt_total > 0, acgt / acgt_total, 0.0)
+        logp = np.where(probs > 0, np.log(probs), 0.0)
+    divs[:] = np.where(acgt_total > 0, -np.sum(probs * logp, axis=0), 0.0)
 
-        freqs = base_counts / n_seqs
-        keep = bases[freqs >= min_allele_freq]
-        keep = np.array([b for b in keep if b.upper() in _VALID_BASES])
+    # annotations: keep present a/c/g/t passing the allele-frequency cutoff.
+    kept = (acgt > 0) & (acgt / n_seqs >= min_allele_freq)  # (4, aln_len)
+    has_kept = kept.any(axis=0)
+    subset = kept.astype(np.int64).T @ _BIT_WEIGHTS  # (aln_len,) bitmask
+    # Fallback when some bases exist but none clear the cutoff: single most
+    # frequent a/c/g/t base. All-gap/all-N columns map to subset 0 -> 'N'/fold 1.
+    fb_bit = _BIT_WEIGHTS[np.argmax(acgt, axis=0)]
+    fallback = (~has_kept) & (acgt_total > 0)
+    final_mask = np.where(has_kept, subset, np.where(fallback, fb_bit, 0))
+    pos_code[:] = _SUBSET_CODES[final_mask]
+    pos_fold[:] = np.where(has_kept, _SUBSET_FOLD[subset], 1)
 
-        if keep.size == 0:  # nothing passes freq threshold
-            keep = np.array([bases[np.argmax(base_counts)]])
-
-        pos_code[i] = _iupac_encode("".join(keep))
-        pos_fold[i] = len(keep)
+    # Exotic columns: run the exact reference loop to preserve every fallback.
+    exotic = np.where(~in_simple.all(axis=0))[0]
+    for i in exotic:
+        c, d, code, fold = _reference_column_stats(
+            dna_matrix, i, n_seqs, min_allele_freq
+        )
+        consensus[i] = c
+        divs[i] = d
+        pos_code[i] = code
+        pos_fold[i] = fold
 
     return consensus, divs, pos_code, pos_fold
 

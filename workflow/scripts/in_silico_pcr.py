@@ -8,11 +8,13 @@
 import argparse
 import csv
 import glob
+import hashlib
 import logging
 import os
 import re
 import subprocess
 import sys
+from bisect import bisect_left, bisect_right
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -70,6 +72,28 @@ def write_summary(rows, out_tsv):
 def _canonical_sequence(sequence):
     reverse = reverse_complement(sequence)
     return min(sequence, reverse)
+
+
+# Fixed-width blake2b digest length used as an opaque allele identity token.
+# 16 bytes is far beyond the number of distinct amplicons any run can produce,
+# so collisions are not a practical concern for the set-membership counting
+# these tokens drive.
+ALLELE_DIGEST_BYTES = 16
+
+
+def _allele_digest(sequence):
+    """Return a constant-size identity token for a canonical amplicon allele.
+
+    Only the *identity* of an allele crosses the worker boundary: downstream
+    code counts distinct alleles per species/genome and detects inter-species
+    overlap through set membership, and never reads the amplicon bases back.
+    Mapping each canonical sequence to a short blake2b digest preserves those
+    set semantics exactly while shrinking the pickled inter-process payload
+    from variable-length amplicon strings to a fixed-width token.
+    """
+    return hashlib.blake2b(
+        sequence.encode("utf-8"), digest_size=ALLELE_DIGEST_BYTES
+    ).hexdigest()
 
 
 def _species_from_header(header, fallback):
@@ -271,6 +295,60 @@ def _summarize_candidates(candidates, total_genomes):
     return rows
 
 
+def _enumerate_amplicons(
+    sequence, forward_hits, reverse_hits, strand, valid_lo, valid_hi
+):
+    """Return (lengths, alleles) for every in-window forward/reverse hit pair.
+
+    The naive validation is an O(len(forward_hits) * len(reverse_hits)) cross
+    product per record/candidate/strand. Only pairs whose amplicon length falls
+    inside ``[valid_lo, valid_hi]`` can ever be accepted, so the far end of one
+    primer is bounded by the start of the other. We sort that far end once and
+    bisect the window, materialising only the pairs inside it. The multiset of
+    accepted (length, allele) pairs is identical to the brute-force loop, which
+    this fully replaces for paralog-rich genomes with many primer sites.
+    """
+    lengths = []
+    alleles = []
+    if strand == "+":
+        # length = reverse_end - forward_start, so a valid pair needs
+        # reverse_end in [forward_start + valid_lo, forward_start + valid_hi].
+        reverse_sorted = sorted(reverse_hits, key=lambda hit: hit[1])
+        reverse_ends = [hit[1] for hit in reverse_sorted]
+        for forward_start, forward_end in forward_hits:
+            window = reverse_sorted[
+                bisect_left(reverse_ends, forward_start + valid_lo) : bisect_right(
+                    reverse_ends, forward_start + valid_hi
+                )
+            ]
+            for reverse_start, reverse_end in window:
+                if reverse_start < forward_end:
+                    continue
+                length = reverse_end - forward_start
+                amplicon = sequence[forward_start:reverse_end]
+                lengths.append(length)
+                alleles.append(_canonical_sequence(amplicon))
+    else:
+        # length = forward_end - reverse_start, so a valid pair needs
+        # forward_end in [reverse_start + valid_lo, reverse_start + valid_hi].
+        forward_sorted = sorted(forward_hits, key=lambda hit: hit[1])
+        forward_ends = [hit[1] for hit in forward_sorted]
+        for reverse_start, reverse_end in reverse_hits:
+            window = forward_sorted[
+                bisect_left(forward_ends, reverse_start + valid_lo) : bisect_right(
+                    forward_ends, reverse_start + valid_hi
+                )
+            ]
+            for forward_start, forward_end in window:
+                if forward_start < reverse_end:
+                    continue
+                length = forward_end - reverse_start
+                amplicon = reverse_complement(sequence[reverse_start:forward_end])
+                lengths.append(length)
+                alleles.append(_canonical_sequence(amplicon))
+    return lengths, alleles
+
+
 def _scan_genome_batch(task):
     """Locate all primer sites in a temporary, uniquely keyed FASTA batch."""
     (
@@ -385,35 +463,32 @@ def _scan_genome_batch(task):
         per_candidate_species = [{} for _ in range(n_candidates)]
         for record_id, species, sequence in by_genome.get(genome_id, []):
             record_hits = hits.get(record_id, {})
-            for candidate_index in range(n_candidates):
+            if not record_hits:
+                continue
+            # Only candidates with a primer site in this record can contribute
+            # an amplicon; the rest always yielded empty lists, so skipping the
+            # full range(n_candidates) scan is exactly equivalent.
+            for candidate_index in {key[0] for key in record_hits}:
                 lengths = []
                 alleles = []
                 for strand in ("+", "-"):
                     forward_hits = record_hits.get((candidate_index, True, strand), [])
                     reverse_hits = record_hits.get((candidate_index, False, strand), [])
-                    for forward_start, forward_end in forward_hits:
-                        for reverse_start, reverse_end in reverse_hits:
-                            if strand == "+":
-                                if reverse_start < forward_end:
-                                    continue
-                                length = reverse_end - forward_start
-                                amplicon = sequence[forward_start:reverse_end]
-                            else:
-                                if forward_start < reverse_end:
-                                    continue
-                                length = forward_end - reverse_start
-                                amplicon = reverse_complement(
-                                    sequence[reverse_start:forward_end]
-                                )
-                            if not valid_lo <= length <= valid_hi:
-                                continue
-                            lengths.append(length)
-                            alleles.append(_canonical_sequence(amplicon))
+                    strand_lengths, strand_alleles = _enumerate_amplicons(
+                        sequence,
+                        forward_hits,
+                        reverse_hits,
+                        strand,
+                        valid_lo,
+                        valid_hi,
+                    )
+                    lengths.extend(strand_lengths)
+                    alleles.extend(strand_alleles)
                 if lengths:
                     per_candidate_hits[candidate_index].extend(lengths)
                     per_candidate_species[candidate_index].setdefault(
                         species, set()
-                    ).update(alleles)
+                    ).update(_allele_digest(allele) for allele in alleles)
         results.append(
             (
                 genome_id,

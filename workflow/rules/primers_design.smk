@@ -15,11 +15,11 @@ rule primers_design:
     resources:
         mem_mb=4096
     input:
-        aln = str(RESULTS / "aligned" / "{gene}.aln"),
+        aln = str(ALIGNED / layout.aln("{gene}")),
         config = CONFIG_FILE
     output:
-        tsv  = temp(str(PRIMERS / "{gene}_primers_raw.tsv")),
-        plot = str(PRIMERS / "{gene}_diversity.png")
+        tsv  = temp(str(PRIMERS / layout.primers_raw("{gene}"))),
+        plot = str(PRIMERS / layout.diversity("{gene}"))
     params:
         gene = lambda wc: wc.gene,
         config_file = CONFIG_FILE,

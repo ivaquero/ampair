@@ -15,13 +15,13 @@ rule in_silico_pcr:
     resources:
         mem_mb=4096
     input:
-        primers    = str(PRIMERS / "{gene}_primers.tsv"),
+        primers    = str(PRIMERS / layout.primers("{gene}")),
         genome_dir = str(GENOMES_GENOMIC),
         config = CONFIG_FILE
     output:
-        summary = str(PRIMERS / "{gene}_amplicons.tsv"),
-        species_summary = str(PRIMERS / "{gene}_species_summary.tsv"),
-        species = str(PRIMERS / "{gene}_species.tsv")
+        summary = str(PRIMERS / layout.amplicons("{gene}")),
+        species_summary = str(PRIMERS / layout.species_summary("{gene}")),
+        species = str(PRIMERS / layout.species("{gene}"))
     params:
         gene             = lambda wc: wc.gene,
         config_file = CONFIG_FILE,

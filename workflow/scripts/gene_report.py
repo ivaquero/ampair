@@ -82,6 +82,8 @@ def _build_body(
     alignment_meta=None,
     config_sha256="",
     manifest_sha256="",
+    git_revision="",
+    manifest_config_sha256="",
     data_fingerprints=None,
     species_metrics=None,
     display_top_n=100,
@@ -105,6 +107,18 @@ def _build_body(
     out.append("|  |  |")
     out.append("|---|---|")
     out.append(f"| **Config SHA-256** | {_md_code(config_sha256 or 'unavailable')} |")
+    if config_sha256 and manifest_config_sha256:
+        config_consistent = (
+            "Yes - matches the download manifest"
+            if config_sha256 == manifest_config_sha256
+            else "NO - the config changed since the genomes were downloaded"
+        )
+    else:
+        config_consistent = "unavailable"
+    out.append(
+        f"| **Config matches download manifest** | {_md_cell(config_consistent)} |"
+    )
+    out.append(f"| **Git revision** | {_md_code(git_revision or 'unavailable')} |")
     out.append(
         f"| **Download manifest SHA-256** | "
         f"{_md_code(manifest_sha256 or 'unavailable')} |"
@@ -359,6 +373,22 @@ def main():
         if args.download_manifest and os.path.isfile(args.download_manifest)
         else ""
     )
+    manifest_git_revision = next(
+        (
+            row.get("git_revision", "")
+            for row in manifest_rows
+            if row.get("git_revision")
+        ),
+        "",
+    )
+    manifest_config_sha256 = next(
+        (
+            row.get("config_sha256", "")
+            for row in manifest_rows
+            if row.get("config_sha256")
+        ),
+        "",
+    )
     log.info(
         "primers: %d rows, amplicons: %d rows, alignment metadata: %d rows",
         len(primers),
@@ -381,6 +411,8 @@ def main():
         alignment_meta=alignment_meta[0] if alignment_meta else None,
         config_sha256=config_sha256,
         manifest_sha256=manifest_sha256,
+        git_revision=manifest_git_revision,
+        manifest_config_sha256=manifest_config_sha256,
         data_fingerprints=data_fingerprints,
         species_metrics=species_metrics,
         display_top_n=display_top_n,

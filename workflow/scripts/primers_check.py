@@ -340,25 +340,16 @@ def main():
     in_tsv = args.in_tsv
     out_tsv = args.out_tsv
 
-    thresholds = {
-        "max_hairpin_dg": None,
-        "max_homodimer_dg": None,
-        "max_heterodimer_dg": None,
-        "max_3end_dg": None,
-    }
+    thresholds = {key: None for key, _default, _cols in QC_THRESHOLD_SPECS}
     if args.config:
         cfg = load_config_file(args.config)
         thresholds.update({key: cfg.get(key) for key in thresholds})
 
-    cli_thresholds = {
-        "max_hairpin_dg": "max_hairpin_dg",
-        "max_homodimer_dg": "max_homodimer_dg",
-        "max_heterodimer_dg": "max_heterodimer_dg",
-        "max_3end_dg": "max_3end_dg",
-    }
-    for threshold_key, arg_name in cli_thresholds.items():
-        if hasattr(args, arg_name):
-            thresholds[threshold_key] = getattr(args, arg_name)
+    # CLI overrides take precedence over config; a flag is only present when the
+    # user passed it (argparse.SUPPRESS default).
+    for key, _default, _cols in QC_THRESHOLD_SPECS:
+        if hasattr(args, key):
+            thresholds[key] = getattr(args, key)
 
     log.info("Input  : %s", in_tsv)
     log.info("Output : %s", out_tsv)
@@ -376,33 +367,11 @@ def main():
             w = csv.writer(fh, delimiter="\t")
             # minimal header when there's no data
             if reader.fieldnames:
-                extra = [
-                    "hairpin_fwd_dg",
-                    "hairpin_rev_dg",
-                    "homodimer_fwd_dg",
-                    "homodimer_rev_dg",
-                    "heterodimer_dg",
-                    "end3_fwd_dg",
-                    "end3_rev_dg",
-                    "qc_pass",
-                    "qc_fail_reasons",
-                ]
-                w.writerow(list(reader.fieldnames) + extra)
+                w.writerow(list(reader.fieldnames) + QC_OUTPUT_FIELDS)
         return
 
     in_fields = list(reader.fieldnames or [])
-    qc_fields = [
-        "hairpin_fwd_dg",
-        "hairpin_rev_dg",
-        "homodimer_fwd_dg",
-        "homodimer_rev_dg",
-        "heterodimer_dg",
-        "end3_fwd_dg",
-        "end3_rev_dg",
-        "qc_pass",
-        "qc_fail_reasons",
-    ]
-    out_fields = in_fields + qc_fields
+    out_fields = in_fields + QC_OUTPUT_FIELDS
 
     checked = []
     primer_cache = {}

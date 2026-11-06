@@ -53,6 +53,7 @@ WORKFLOW_DIR = SCRIPTS_DIR.parent
 sys.path.insert(0, str(SCRIPTS_DIR))
 
 from config_schema import apply_config_defaults, validate_config
+import pipeline_layout as layout
 
 CONFIG_FILE = os.environ.get("AMPAIR_CONFIG_FILE", "config/config.yaml")
 configfile: CONFIG_FILE
@@ -73,21 +74,21 @@ GENES = config["genes"]
 # Per-genus result tree keeps multiple genus runs cleanly separated
 RESULTS = Path("results") / GENUS
 
-GENOMES_GENOMIC = RESULTS / "genomes" / "genomic"
-GENOMES_CDS     = RESULTS / "genomes" / "cds"
-GENOMES_RNA     = RESULTS / "genomes" / "rna"
-EXTRACTED       = RESULTS / "extracted"
-ALIGNED         = RESULTS / "aligned"
-PRIMERS         = RESULTS / "primers"
-REPORTS         = RESULTS / "reports"
+GENOMES_GENOMIC = RESULTS / layout.GENOMES / layout.GENOMIC
+GENOMES_CDS     = RESULTS / layout.GENOMES / layout.CDS
+GENOMES_RNA     = RESULTS / layout.GENOMES / layout.RNA
+EXTRACTED       = RESULTS / layout.EXTRACTED
+ALIGNED         = RESULTS / layout.ALIGNED
+PRIMERS         = RESULTS / layout.PRIMERS
+REPORTS         = RESULTS / layout.REPORTS
 
 # ---------------------------------------------------------------------------
 # Top-level target: one HTML report per gene
 # ---------------------------------------------------------------------------
 rule all:
     input:
-        expand(str(REPORTS / "{gene}_report.html"), gene=GENES),
-        str(REPORTS / "gene_report_cross.html")
+        expand(str(REPORTS / layout.report_html("{gene}")), gene=GENES),
+        str(REPORTS / layout.CROSS_REPORT)
 
 # ---------------------------------------------------------------------------
 # Include rule modules (paths relative to this Snakefile in workflow/)

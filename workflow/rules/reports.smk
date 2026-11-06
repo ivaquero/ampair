@@ -10,18 +10,18 @@ rule gene_report:
     resources:
         mem_mb=1024
     input:
-        primers = str(PRIMERS / "{gene}_primers.tsv"),
-        amplicons = str(PRIMERS / "{gene}_amplicons.tsv"),
-        species_summary = str(PRIMERS / "{gene}_species_summary.tsv"),
-        diversity = str(PRIMERS / "{gene}_diversity.png"),
-        alignment_meta = str(ALIGNED / "{gene}.alignment.tsv"),
+        primers = str(PRIMERS / layout.primers("{gene}")),
+        amplicons = str(PRIMERS / layout.amplicons("{gene}")),
+        species_summary = str(PRIMERS / layout.species_summary("{gene}")),
+        diversity = str(PRIMERS / layout.diversity("{gene}")),
+        alignment_meta = str(ALIGNED / layout.alignment_meta("{gene}")),
         config = CONFIG_FILE
     output:
-        str(REPORTS / "{gene}_report.html")
+        str(REPORTS / layout.report_html("{gene}"))
     params:
         gene = lambda wc: wc.gene,
         config_file = CONFIG_FILE,
-        download_manifest = str(RESULTS / "genomes" / "download_manifest.tsv"),
+        download_manifest = str(RESULTS / layout.GENOMES / layout.DOWNLOAD_MANIFEST),
         script = str(SCRIPTS_DIR / "gene_report.py")
     log:
         str(RESULTS / "logs" / "gene_report" / "{gene}.log")
@@ -48,10 +48,10 @@ rule gene_report_cross:
     resources:
         mem_mb=1024
     input:
-        summaries = expand(str(PRIMERS / "{gene}_species_summary.tsv"), gene=GENES),
+        summaries = expand(str(PRIMERS / layout.species_summary("{gene}")), gene=GENES),
         config = CONFIG_FILE
     output:
-        str(REPORTS / "gene_report_cross.html")
+        str(REPORTS / layout.CROSS_REPORT)
     params:
         script = str(SCRIPTS_DIR / "gene_report_cross.py")
     log:

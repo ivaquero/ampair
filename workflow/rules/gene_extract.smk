@@ -19,7 +19,7 @@ rule gene_extract:
         rna = str(GENOMES_RNA),
         config = CONFIG_FILE
     output:
-        fasta = [temp(str(EXTRACTED / f"{gene}.fasta")) for gene in GENES]
+        fasta = [temp(str(EXTRACTED / layout.extracted_fasta(gene))) for gene in GENES]
     params:
         config_file = CONFIG_FILE,
         cds_dir = str(GENOMES_CDS),

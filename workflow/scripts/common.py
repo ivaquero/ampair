@@ -11,7 +11,7 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
-from ampair.provenance import fasta_directory_summary, sha256_file
+from ampair.provenance import fasta_directory_summary, git_revision, sha256_file
 
 __all__ = [
     "IUPAC_COMPLEMENT_TABLE",
@@ -19,6 +19,7 @@ __all__ = [
     "configure_logging",
     "ensure_parent",
     "fasta_directory_summary",
+    "git_revision",
     "log_process_output",
     "required_param",
     "reverse_complement",
